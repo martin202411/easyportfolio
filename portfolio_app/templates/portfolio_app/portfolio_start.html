@@ -1,0 +1,300 @@
+{# /opt/easyportfolio_django_app/portfolio_app/templates/portfolio_app/portfolio_start.html #}
+{% extends "portfolio_app/base.html" %}
+{% load static %}
+
+{% block title %}
+    Tool-Dashboard - EasyPortfolio
+{% endblock title %}
+
+{% block content %}
+<div class="container-fluid">
+
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">EasyPortfolio Dashboard</h1>
+        {% if wp_count is not None %}
+            <div class="btn-toolbar mb-2 mb-md-0">
+                <span class="badge bg-primary rounded-pill fs-6">Wertpapiere in DB: {{ wp_count }}</span>
+            </div>
+        {% endif %}
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col">
+            <div class="card custom-card-subtle">
+                <div class="card-body">
+                    <h5 class="card-title mb-3"><i class="bi bi-bar-chart-line-fill me-2"></i>Kurz-Statistik</h5>
+                    <div class="d-flex flex-wrap">
+                        {% if wp_count is not None %}
+                            <div class="me-4 mb-2">
+                                <span class="fw-bold">Wertpapiere in DB:</span>
+                                <span class="badge bg-primary rounded-pill fs-6 ms-1">{{ wp_count }}</span>
+                            </div>
+                        {% endif %}
+                        <div class="me-4 mb-2">
+                            <span class="fw-bold">Letzter Datenimport:</span>
+                            <span class="text-muted small ms-1">(Platzhalter)</span>
+                        </div>
+                        <div class="me-4 mb-2">
+                            <span class="fw-bold">Aktive Tasks:</span>
+                            <span class="text-muted small ms-1">0 (Platzhalter)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <p class="lead mb-4">
+        Dein zentraler Anlaufpunkt für Wertpapieranalyse, Datenmanagement und Portfolio-Überblick.
+    </p>
+
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-4 g-4 mb-5">
+        
+        <div class="col">
+            <div class="card h-100 shadow-sm custom-card">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex align-items-start mb-3">
+                        <i class="bi bi-graph-up-arrow fs-2 text-primary me-3"></i>
+                        <div>
+                            <h5 class="card-title mb-1">Einzel-WP Analyse</h5>
+                            <p class="card-text text-muted small">Detaillierte Charts und Kennzahlen für ein Wertpapier aus der DB anzeigen.</p>
+                        </div>
+                    </div>
+                    <a href="{% url 'portfolio_app:einzel_wp_ansicht' %}" class="btn btn-primary mt-auto stretched-link">Zur Analyse <i class="bi bi-arrow-right-short"></i></a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col">
+            <div class="card h-100 shadow-sm custom-card">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex align-items-start mb-3">
+                        <i class="bi bi-cloud-arrow-down-fill fs-2 text-success me-3"></i>
+                        <div>
+                            <h5 class="card-title mb-1">EODHD Daten-Hub</h5>
+                            <p class="card-text text-muted small">Wertpapiere über EODHD suchen, importieren und aktualisieren.</p>
+                        </div>
+                    </div>
+                    <a href="{% url 'portfolio_app:eodhd_data_hub' %}" class="btn btn-success mt-auto stretched-link">Zum Daten-Hub <i class="bi bi-arrow-right-short"></i></a>
+                </div>
+            </div>
+        </div>
+
+        {# +++ NEUE KACHEL: PORTFOLIO MANAGER +++ #}
+        <div class="col">
+            <div class="card h-100 shadow-sm custom-card">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex align-items-start mb-3">
+                        <i class="bi bi-kanban fs-2 me-3" style="color: #0dcaf0;"></i> {# Helles Cyan als Akzentfarbe #}
+                        <div>
+                            <h5 class="card-title mb-1">Portfolio Manager</h5>
+                            <p class="card-text text-muted small">Eigene Portfolios erstellen, bearbeiten und Zielgewichtungen festlegen.</p>
+                        </div>
+                    </div>
+                    <a href="{% url 'portfolio_app:portfolio_manager' %}" class="btn mt-auto stretched-link" style="background-color: #0dcaf0; color: white;">Zum Manager <i class="bi bi-arrow-right-short"></i></a>
+                </div>
+            </div>
+        </div>
+        {# +++ ENDE NEUE KACHEL +++ #}
+        
+        <div class="col">
+            <div class="card h-100 shadow-sm custom-card">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex align-items-start mb-3">
+                        <i class="bi bi-person-bounding-box fs-2 me-3" style="color: #6f42c1;"></i>
+                        <div>
+                            <h5 class="card-title mb-1">Expertenportfolios</h5>
+                            <p class="card-text text-muted small">Analyse und Verwaltung von Expertenportfolios.</p>
+                        </div>
+                    </div>
+                    <a href="{% url 'portfolio_app:experten_portfolio_ansicht' %}" class="btn mt-auto stretched-link" style="background-color: #6f42c1; color: white;">Zur Experten-Analyse <i class="bi bi-arrow-right-short"></i></a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col">
+            <div class="card h-100 shadow-sm custom-card">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex align-items-start mb-3">
+                        <i class="bi bi-pie-chart-fill fs-2 text-warning me-3"></i>
+                        <div>
+                            <h5 class="card-title mb-1">Portfolio Performance</h5>
+                            <p class="card-text text-muted small">Übersicht und Analyse Ihrer Portfolio-Entwicklung.</p>
+                        </div>
+                    </div>
+                    <a href="#" class="btn btn-warning disabled mt-auto stretched-link">Demnächst <i class="bi bi-hourglass-split"></i></a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col">
+            <div class="card h-100 shadow-sm custom-card">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex align-items-start mb-3">
+                        <i class="bi bi-journal-check fs-2 me-3" style="color: #fd7e14;"></i>
+                        <div>
+                            <h5 class="card-title mb-1">Mein Portfolio</h5>
+                            <p class="card-text text-muted small">Verwaltung und Tracking deines persönlichen Portfolios.</p>
+                        </div>
+                    </div>
+                    <a href="#" class="btn mt-auto stretched-link disabled" style="background-color: #fd7e14; color:white;">Demnächst <i class="bi bi-hourglass-split"></i></a>
+                </div>
+            </div>
+        </div>
+
+        {% if user.is_staff %}
+        <div class="col">
+            <div class="card h-100 shadow-sm custom-card">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex align-items-start mb-3">
+                        <i class="bi bi-sliders fs-2 text-info me-3"></i>
+                        <div>
+                            <h5 class="card-title mb-1">Admin-Bereich</h5>
+                            <p class="card-text text-muted small">Direkter Zugriff auf die Datenbankverwaltung und Benutzereinstellungen.</p>
+                        </div>
+                    </div>
+                    <a href="{% url 'admin:index' %}" class="btn btn-info text-white mt-auto stretched-link">Zum Admin <i class="bi bi-arrow-right-short"></i></a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="col">
+            <div class="card h-100 shadow-sm custom-card">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex align-items-start mb-3">
+                        <i class="bi bi-hdd-network-fill fs-2 text-light me-3"></i>
+                        <div>
+                            <h5 class="card-title mb-1">Netdata Monitoring</h5>
+                            <p class="card-text text-muted small">Live-Überwachung der Server-Performance und Ressourcennutzung.</p>
+                        </div>
+                    </div>
+                    <a href="https://easyportfolio.de/netdata/" target="_blank" class="btn btn-secondary mt-auto stretched-link">Netdata öffnen <i class="bi bi-box-arrow-up-right"></i></a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col">
+            <div class="card h-100 shadow-sm custom-card">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex align-items-start mb-3">
+                        <i class="bi bi-wordpress fs-2 me-3" style="color: #21759b;"></i>
+                        <div>
+                            <h5 class="card-title mb-1">WordPress Dashboard</h5>
+                            <p class="card-text text-muted small">Verwaltung der öffentlichen Webseite. (Manueller Login nötig)</p>
+                        </div>
+                    </div>
+                    <a href="https://easyportfolio.de/wp-admin/" target="_blank" class="btn mt-auto stretched-link" style="background-color: #21759b; color: white;">WordPress öffnen <i class="bi bi-box-arrow-up-right"></i></a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col">
+            <div class="card h-100 shadow-sm custom-card">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex align-items-start mb-3">
+                        <i class="bi bi-clock-history fs-2 me-3" style="color: #198754;"></i>
+                        <div>
+                            <h5 class="card-title mb-1">Geplante Tasks</h5>
+                            <p class="card-text text-muted small">Status und Verwaltung automatisierter Hintergrundaufgaben (z.B. Datenupdates mit Celery).</p>
+                        </div>
+                    </div>
+                    <a href="#" class="btn mt-auto stretched-link disabled" style="background-color: #198754; color:white;">Demnächst <i class="bi bi-hourglass-split"></i></a>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <h3 class="h4 mt-5 mb-3">Zukünftige Projekte & To-Do's</h3>
+    <div class="row">
+        <div class="col-lg-8 col-md-10"> 
+            <ul class="list-group custom-list-group">
+                <li class="list-group-item d-flex justify-content-between align-items-center custom-list-item">
+                    <div><i class="bi bi-tools me-2 text-primary"></i>Automatisierte, nächtliche Datenupdates implementieren</div>
+                    <span class="badge bg-primary rounded-pill">Celery</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between align-items-center custom-list-item">
+                    <div><i class="bi bi-currency-exchange me-2 text-secondary"></i>Wechselkursdaten über Alpha Vantage integrieren</div>
+                    <span class="badge bg-secondary rounded-pill">Datenquelle</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between align-items-center custom-list-item">
+                    <div><i class="bi bi-file-earmark-bar-graph me-2 text-secondary"></i>Fundamentaldaten über yfinance hinzufügen</div>
+                    <span class="badge bg-secondary rounded-pill">Datenquelle</span>
+                </li>
+                 <li class="list-group-item d-flex justify-content-between align-items-center custom-list-item">
+                    <div><i class="bi bi-envelope-fill me-2 text-info"></i>Mail-Benachrichtigungen für Updates einrichten</div>
+                    <span class="badge bg-info text-dark rounded-pill">System</span>
+                </li>
+                 <li class="list-group-item d-flex justify-content-between align-items-center custom-list-item">
+                    <div><i class="bi bi-google me-2" style="color: #db4437;"></i>Google Analytics einbinden</div>
+                    <span class="badge bg-info text-dark rounded-pill">System</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+</div>
+
+{# Zusätzliches CSS für die Kacheln und Listen (kann auch in base.html oder eine eigene CSS-Datei) #}
+<style>
+    .custom-card {
+        background-color: #152033; 
+        border: 1px solid #223044; 
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        border-radius: 6px; 
+    }
+    .custom-card:hover {
+        transform: translateY(-4px); 
+        box-shadow: 0 6px 15px rgba(0,0,0,0.4);
+    }
+    .custom-card .card-body {
+        padding: 1.1rem; 
+    }
+    .custom-card .card-title {
+        color: #e8eff7;
+        font-weight: 600;
+        font-size: 1.05rem; 
+    }
+    .custom-card .card-text.small {
+        font-size: 0.78rem; 
+        color: #a9b8cc !important;
+        line-height: 1.45;
+        margin-bottom: 0.8rem; 
+    }
+    .custom-card .btn {
+        font-weight: 500;
+        letter-spacing: 0.3px; 
+        font-size: 0.85rem; 
+        padding: 0.4rem 0.8rem;
+    }
+    .custom-card i.fs-2 { 
+        font-size: 1.75rem !important; 
+        opacity: 0.7;
+        width: 30px; 
+    }
+    .custom-list-group .list-group-item { 
+        background-color: #152033;
+        border-color: #223044;
+        color: #d1d9e6;
+        font-size: 0.9rem;
+        padding: 0.6rem 1rem;
+    }
+    .custom-list-group .list-group-item i {
+        opacity: 0.7;
+    }
+    .custom-card-subtle { 
+        background-color: #101829;
+        border: 1px solid #223044;
+    }
+    .custom-card-subtle .card-title {
+        color: #a9b8cc;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .custom-card-subtle .badge {
+        font-weight: 600;
+    }
+</style>
+{% endblock content %}

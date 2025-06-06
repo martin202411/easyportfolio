@@ -1,0 +1,46 @@
+# /opt/easyportfolio_django_app/.flake8
+
+[flake8]
+# Ignoriere bestimmte Fehlercodes:
+# E501: line too long (wir setzen max-line-length unten, aber Black kümmert sich meistens darum)
+# W503: line break before binary operator (Black macht das manchmal so, ist okay)
+# E203: whitespace before ':' (oft ein Konflikt mit Black)
+# D203: 1 blank line required before class docstring (kann man diskutieren)
+# D211: No blank lines allowed before class docstring (kann man diskutieren)
+# D400: First line should end with a period (Geschmackssache bei Docstrings)
+# D402: First line should not be the function’s signature (Geschmackssache)
+# D100: Missing docstring in public module
+# D104: Missing docstring in public package
+# D107: Missing docstring in __init__
+ignore = E501, W503, E203, D203, D211, D400, D402, D100, D104, D107
+
+# Maximale Zeilenlänge. Black verwendet standardmäßig 88.
+# Wenn du das ändern willst, musst du es auch in der Black-Konfiguration (pyproject.toml) anpassen.
+# Wir bleiben mal bei einem gängigen Wert, der etwas mehr Spielraum lässt als die klassischen 79.
+max-line-length = 99 
+
+# Maximale Komplexität (McCabe). Standard ist 10. Höhere Werte erlauben komplexere Funktionen.
+# Für den Anfang ist 10-15 oft ein guter Kompromiss.
+max-complexity = 12
+
+# Schließe bestimmte Ordner von der Prüfung aus.
+# migrations-Ordner enthalten oft generierten Code, der nicht immer perfekt ist.
+# venv-Ordner sollten sowieso nie geprüft werden.
+exclude =
+    .git,
+    __pycache__,
+    venv,
+    */migrations/*, # Schließt alle migrations-Ordner in allen Apps aus
+    staticfiles,
+    media
+
+# Erlaube spezifische Namen, die Flake8 sonst als "undefined" anmeckern könnte,
+# besonders wenn sie in Django-Templates oder durch Django selbst injiziert werden.
+# (Für den Anfang meist nicht nötig, kann bei Bedarf erweitert werden)
+# builtins = 
+#   request,  # Django's request object
+#   user      # Django's user object
+
+# Wenn du Django-spezifische Flake8-Plugins verwendest (z.B. flake8-django),
+# werden diese hier oft aktiviert oder konfiguriert.
+# (Für den Anfang halten wir es einfach)

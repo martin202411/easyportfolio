@@ -1,0 +1,584 @@
+{# /opt/easyportfolio_django_app/portfolio_app/templates/portfolio_app/experten_portfolio_ansicht.html #}
+
+{% extends "portfolio_app/base.html" %}
+{% load static %}
+
+{% block title %}Expertenportfolios - EasyPortfolio{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header-row"> 
+        <h1><i class="bi bi-person-bounding-box me-2"></i>Expertenportfolios</h1>
+    </div>
+
+    <div class="main-content-grid">
+        {# LINKE SPALTE: STEUERELEMENTE #}
+        <div class="controls-column-card">
+            <h2>Filter & Einstellungen</h2>
+            <form method="GET" action="{% url 'portfolio_app:experten_portfolio_ansicht' %}" id="analyse_form_experten">
+                {% if zeitraum_preset_form %} <input type="hidden" name="zeitraum_preset" value="{{ zeitraum_preset_form }}"> {% endif %}
+                {% if von_datum_str %} <input type="hidden" name="von_datum" value="{{ von_datum_str }}"> {% endif %}
+                {% if bis_datum_str %} <input type="hidden" name="bis_datum" value="{{ bis_datum_str }}"> {% endif %}
+
+                <label for="benchmark_select_experten">Benchmark:</label>
+                <select name="benchmark" id="benchmark_select_experten">
+                    {% for bench in benchmarks %}
+                        <option value="{{ bench.id }}" {% if bench.id == ausgewaehlter_benchmark_id %}selected{% endif %}>{{ bench.name }}</option>
+                    {% endfor %}
+                </select>
+
+                <label for="zeitraum_preset_experten_filter">Zeitraum:</label>
+                <select name="zeitraum_preset_select" id="zeitraum_preset_experten_filter">
+                    <option value="1J" {% if zeitraum_preset_form == "1J" %}selected{% endif %}>1 Jahr</option>
+                    <option value="3J" {% if zeitraum_preset_form == "3J" %}selected{% endif %}>3 Jahre</option>
+                    <option value="5J" {% if zeitraum_preset_form == "5J" %}selected{% endif %}>5 Jahre</option>
+                    <option value="10J" {% if zeitraum_preset_form == "10J" %}selected{% endif %}>10 Jahre</option>
+                    <option value="Max" {% if zeitraum_preset_form == "Max" %}selected{% endif %}>Maximal</option>
+                    <option value="Benutzerdefiniert" {% if zeitraum_preset_form == "Benutzerdefiniert" %}selected{% endif %}>Benutzerdefiniert</option>
+                </select>
+                
+                <div id="benutzerdefinierter_zeitraum_experten_filter_div" style="{% if zeitraum_preset_form != 'Benutzerdefiniert' %}display: none;{% endif %} margin-top: 10px; padding: 10px; background-color: #101829; border-radius: 4px; border: 1px solid #223044;">
+                    <label for="von_datum_experten_filter" style="margin-top:0;">Von:</label>
+                    <input type="date" name="von_datum_input" id="von_datum_experten_filter" value="{{ von_datum_str }}">
+                    <label for="bis_datum_experten_filter">Bis:</label>
+                    <input type="date" name="bis_datum_input" id="bis_datum_experten_filter" value="{{ bis_datum_str }}">
+                    <button type="button" id="benutzerdef_zeitraum_anwenden_btn_filter" class="btn btn-secondary btn-sm mt-2 w-100">Zeitraum anwenden</button>
+                </div>
+
+                <label>Skala:</label>
+                <div class="radio-group">
+                    <input type="radio" id="skala_linear_experten" name="skala" value="linear" {% if skala == 'linear' %}checked{% endif %}>
+                    <label for="skala_linear_experten">Linear</label>
+                    <input type="radio" id="skala_log_experten" name="skala" value="log" {% if skala == 'log' %}checked{% endif %}>
+                    <label for="skala_log_experten">Log</label>
+                </div>
+            </form>
+        </div>
+
+        <div class="chart-column-card">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <h3 class="h5 mb-0">Experten ETF/Fonds:</h3>
+                <a href="{% url 'portfolio_app:portfolio_manager' %}" 
+                   class="btn btn-sm btn-outline-info" 
+                   title="Eigene Portfolios im Portfolio Manager erstellen und verwalten">
+                   <i class="bi bi-tools"></i> Portfolios selbst zusammenstellen 
+                </a>
+            </div>
+            <div class="mb-3">
+                {% if experten_wps %} <div class="expert-item-pills d-flex flex-wrap"> {% for wp in experten_wps %} <a href="javascript:void(0);" data-id="{{ wp.security_id }}" data-type="wp" class="badge rounded-pill {% if wp.security_id in selected_expert_wp_ids_from_url %}active-pill{% else %}text-bg-secondary-custom{% endif %} me-2 mb-2 expert-pill-link">{{ wp.security_name }}</a> {% endfor %} </div> {% else %}<p class="text-muted">Keine "Experten ETF/Fonds" markiert.</p>{% endif %}
+            </div>
+
+            <div class="mb-4"> 
+                <h3 class="h5">Experten ETF-Portfolios und klassische ETF-Portfolios:</h3>
+                {% if experten_portfolios_list %} <div class="expert-item-pills d-flex flex-wrap"> {% for epf in experten_portfolios_list %} <a href="javascript:void(0);" data-id="{{ epf.portfolio_id }}" data-type="portfolio" class="badge rounded-pill {% if epf.portfolio_id in selected_expert_portfolio_ids_from_url %}active-pill{% else %}text-bg-secondary-custom{% endif %} me-2 mb-2 expert-pill-link">{{ epf.portfolio_name }}</a> {% endfor %} </div> {% else %}<p class="text-muted">Keine "Expertenportfolios" markiert.</p>{% endif %}
+            </div>
+                        
+            {% if fehler_kursdaten %} <div class="alert alert-warning mt-3">{{ fehler_kursdaten }}</div> {% endif %}
+            {% if not chart_daten_json and not fehler_kursdaten and not selected_expert_wp_ids_from_url and not selected_expert_portfolio_ids_from_url %}
+                 <p class="text-muted mt-3">Bitte oben Element(e) für den Vergleich auswählen.</p>
+            {% endif %}
+            
+            <div id="plotly_chart_div_experten" style="min-height: 500px; border-radius: 4px; padding:10px; margin-top: 1rem;"></div>
+            
+            <div class="mt-3 text-start">
+                <button type="button" id="rebase_performance_btn" class="btn btn-sm btn-outline-info">
+                    <i class="bi bi-arrow-clockwise"></i> Performance ab neuem Startdatum neu indexieren
+                </button>
+            </div>
+            
+            <h3 style="margin-top: 30px;">Kennzahlen</h3>
+            <div id="kpi_table_div_experten">
+                <p class="text-muted">KPIs erscheinen hier...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block extra_head %}
+    {{ block.super }}
+    <style>
+        .page-header-row h1 { margin-top: 0; margin-bottom: 0; }
+        .main-content-grid { display: grid; grid-template-columns: 280px 1fr; gap: 20px; }
+        .controls-column-card, .chart-column-card { 
+            background-color: #152033; padding: 20px; border-radius: 6px; border: 1px solid #223044; 
+        }
+        .controls-column-card h2 {
+            color: #e8eff7; border-bottom: 1px solid #223044; padding-bottom: 8px; 
+            margin-top: 0; margin-bottom: 18px; font-size: 1.25em; 
+        }
+        .controls-column-card label { 
+            display: block; margin-top: 12px; margin-bottom: 5px; font-weight: 600; 
+            font-size: 0.825em; color: #a9b8cc; 
+        }
+        .controls-column-card select, 
+        .controls-column-card input[type="date"] { /* Diese Inputs sind jetzt weg, aber die Regel schadet nicht */
+            width: 100%; padding: 7px 9px; border-radius: 4px; border: 1px solid #2c3e50; 
+            background-color: #0a101f; color: #c5d1de; box-sizing: border-box; font-size: 0.825em;
+        }
+        .controls-column-card select { margin-bottom: 12px; }
+        .controls-column-card .radio-group {
+            background-color: #0a101f; padding: 7px 9px; border-radius: 4px;
+            border: 1px solid #2c3e50; margin-bottom: 12px; display: flex; flex-wrap: wrap;
+        }
+        .controls-column-card .radio-group label {
+            margin-right: 8px; margin-left: 2px; font-weight: normal; font-size: 0.825em; 
+            color: #c5d1de; margin-top: 0; margin-bottom: 0; line-height: 1.5; 
+        }
+        .controls-column-card .radio-group input[type="radio"] {
+            margin-right: 3px; vertical-align: middle; 
+        }
+        .expert-item-pills .expert-pill-link {
+            font-size: 0.8rem; 
+            padding: 0.45em 0.8em; 
+            text-decoration: none; 
+            cursor: pointer; 
+            border: 1px solid transparent; 
+            transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+            font-weight: 500;
+        }
+        .text-bg-secondary-custom { 
+            background-color: #343a40 !important; 
+            color: #b0c4de !important;
+            border-color: #495057 !important;
+        }
+        .text-bg-secondary-custom:hover {
+            background-color: #495057 !important;
+            border-color: #6c757d !important;
+        }
+        .active-pill { 
+            background-color: #0d6efd !important; 
+            color: white !important;
+            font-weight: 600; 
+            border-color: #0a58ca !important;
+        }
+        #plotly_chart_div_experten, #kpi_table_div_experten { background-color: #0a101f; }
+        .form-invalid #weights_sum_display_manager.sum-error { /* Für Portfolio Manager, schadet hier nicht */
+            transform-origin: center center;
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        @keyframes shake { 10%, 90% { transform: translate3d(-1px, 0, 0); } 20%, 80% { transform: translate3d(2px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-4px, 0, 0); } 40%, 60% { transform: translate3d(4px, 0, 0); } }
+        .js-plotly-plot .plotly .rangeselector .button { fill: #0a101f !important; stroke: #2c3e50 !important; }
+        .js-plotly-plot .plotly .rangeselector .button text { fill: #c5d1de !important; }
+        .js-plotly-plot .plotly .rangeselector .button.active { fill: #0d6efd !important; }
+        .js-plotly-plot .plotly .rangeselector .button.active text { fill: white !important; }
+
+        .custom-kpi-table {
+            font-size: 0.8rem;
+            color: #c5d1de; 
+        }
+        .custom-kpi-table thead th {
+            background-color: #1a2433; 
+            color: #e0e6ed;
+            font-weight: 600;
+            font-size: 0.825rem;
+            text-align: right;
+            white-space: nowrap;
+        }
+        .custom-kpi-table thead th:first-child {
+            text-align: left;
+        }
+        .custom-kpi-table tbody td {
+            text-align: right;
+            border-color: #223044; 
+            padding: 0.4rem 0.5rem;
+            white-space: nowrap;
+        }
+        .custom-kpi-table tbody td:first-child {
+            text-align: left;
+            font-weight: 500;
+        }
+        .custom-kpi-table .positive-kpi { color: #28a745; }
+        .custom-kpi-table .negative-kpi { color: #dc3545; }
+
+        /* +++ ANGEPASSTES STYLING FÜR BENCHMARK-REIHE +++ */
+        .custom-kpi-table tr.benchmark-kpi-row td {
+            font-weight: 600 !important; /* Fettschrift mit !important */
+            background-color: #18202c !important; /* Etwas anderer Hintergrund, subtil, mit !important */
+                                                    /* Original war #1a2433, das ist der gleiche wie Header, ggf. anpassen */
+                                                    /* Vielleicht #1f2b3a; für eine leichte Aufhellung oder #111927 für Abdunklung */
+            color: #e8eff7 !important; /* Ggf. Textfarbe anpassen für besseren Kontrast zum neuen Hintergrund */
+        }
+        /* Optional: Wenn der Name des Benchmarks noch stärker hervorgehoben werden soll */
+        .custom-kpi-table tr.benchmark-kpi-row td:first-child {
+             /* color: #88ddff !important; */ /* z.B. eine Akzentfarbe für den Namen */
+        }
+
+    </style>
+{% endblock %}
+
+
+{% block extra_scripts %}
+    {{ block.super }}
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log("DOM vollständig geladen. Initialisiere Experten-Analyse Script v8.15 (Feintuning komplett - Basis #285)...");
+
+        // --- DOM Elemente ---
+        const analyseFormExperten = document.getElementById('analyse_form_experten');
+        const benchmarkSelectElementExperten = document.getElementById('benchmark_select_experten');
+        const zeitraumPresetFilterElement = document.getElementById('zeitraum_preset_experten_filter'); 
+        const benutzerdefDivFilterElement = document.getElementById('benutzerdefinierter_zeitraum_experten_filter_div');
+        const vonDatumFilterInputElement = document.getElementById('von_datum_experten_filter'); 
+        const bisDatumFilterInputElement = document.getElementById('bis_datum_experten_filter'); 
+        const benutzerdefAnwendenBtnElement = document.getElementById('benutzerdef_zeitraum_anwenden_btn_filter');
+        const plotlyChartDivExperten = document.getElementById('plotly_chart_div_experten');
+        const rebaseButton = document.getElementById('rebase_performance_btn');
+        const kpiTableDiv = document.getElementById('kpi_table_div_experten');
+        
+        let ausgewaehlteWpIds = [];
+        let ausgewaehltePortfolioIds = [];
+        const baseUrl = "{% url 'portfolio_app:experten_portfolio_ansicht' %}";
+        let aktuellerChartZustand = null;
+
+        // --- FUNKTIONEN ---
+        function submitAnalyseFormMitNeuerUrl() {
+            const params = new URLSearchParams();
+            if (benchmarkSelectElementExperten) params.append('benchmark', benchmarkSelectElementExperten.value);
+            
+            if (zeitraumPresetFilterElement) {
+                params.append('zeitraum_preset', zeitraumPresetFilterElement.value);
+                if (zeitraumPresetFilterElement.value === 'Benutzerdefiniert') {
+                    if (vonDatumFilterInputElement) params.append('von_datum', vonDatumFilterInputElement.value);
+                    if (bisDatumFilterInputElement) params.append('bis_datum', bisDatumFilterInputElement.value);
+                }
+            } else { 
+                const hiddenPreset = document.querySelector('input[name="zeitraum_preset"]');
+                if (hiddenPreset) params.append('zeitraum_preset', hiddenPreset.value);
+                const hiddenVon = document.querySelector('input[name="von_datum"]');
+                if (hiddenVon) params.append('von_datum', hiddenVon.value);
+                const hiddenBis = document.querySelector('input[name="bis_datum"]');
+                if (hiddenBis) params.append('bis_datum', hiddenBis.value);
+            }
+            
+            document.querySelectorAll('input[name="skala"]:checked').forEach(radio => {
+                params.append(radio.name, radio.value);
+            });
+            ausgewaehlteWpIds.forEach(id => params.append('expert_wp_id', id));
+            ausgewaehltePortfolioIds.forEach(id => params.append('expert_portfolio_id', id));
+            
+            window.location.href = baseUrl + '?' + params.toString();
+        }
+
+        function toggleBenutzerdefinierterZeitraumFilter() {
+            if (zeitraumPresetFilterElement && benutzerdefDivFilterElement) {
+                benutzerdefDivFilterElement.style.display = (zeitraumPresetFilterElement.value === 'Benutzerdefiniert') ? 'block' : 'none';
+            }
+        }
+        
+        function initialisierePillStatus() { 
+            const urlParams = new URLSearchParams(window.location.search);
+            ausgewaehlteWpIds = urlParams.getAll('expert_wp_id'); 
+            ausgewaehltePortfolioIds = urlParams.getAll('expert_portfolio_id');
+
+            document.querySelectorAll('.expert-pill-link').forEach(pill => {
+                const id = pill.dataset.id;
+                const type = pill.dataset.type;
+                let isActive = (type === 'wp' && ausgewaehlteWpIds.includes(id)) || 
+                               (type === 'portfolio' && ausgewaehltePortfolioIds.includes(id));
+                
+                pill.classList.toggle('active-pill', isActive);
+                pill.classList.toggle('text-bg-secondary-custom', !isActive);
+                pill.style.backgroundColor = ''; 
+                pill.style.borderColor = '';
+                pill.style.color = '';
+            });
+        }
+
+        function formatKpiValue(value, type = 'decimal', digits = 2, defaultVal = '-') {
+            if (value === null || typeof value === 'undefined' || (typeof value === 'number' && isNaN(value))) {
+                return defaultVal;
+            }
+            try {
+                const numValue = parseFloat(value);
+                if (isNaN(numValue)) return defaultVal;
+
+                if (type === 'percent') {
+                    return (numValue * 100).toFixed(digits) + '%';
+                } else if (type === 'decimal') {
+                    return numValue.toFixed(digits);
+                } else if (type === 'date_str') { 
+                    return String(value); 
+                }
+                return String(numValue);
+            } catch (e) {
+                console.warn("Fehler beim Formatieren des KPI-Werts:", value, e);
+                return defaultVal;
+            }
+        }
+
+        function displayKpis(traces) {
+            if (!kpiTableDiv) return;
+            kpiTableDiv.innerHTML = ''; 
+
+            if (!traces || traces.length === 0 || !traces.some(t => t.kpis)) {
+                kpiTableDiv.innerHTML = '<p class="text-muted">Keine Kennzahlen für die aktuelle Auswahl verfügbar.</p>';
+                return;
+            }
+
+            let tableHtml = '<table class="table table-sm table-hover custom-kpi-table"><thead><tr>';
+            tableHtml += '<th>Name</th>';
+            const kpiOrder = [
+                { key: 'ges_rendite', label: 'Ges. Rend.', type: 'percent', digits: 2 },
+                { key: 'cagr', label: 'CAGR p.a.', type: 'percent', digits: 2 },
+                { key: 'vola_a', label: 'Vola p.a.', type: 'percent', digits: 2 },
+                { key: 'sharpe_a', label: 'Sharpe (ann.)', type: 'decimal', digits: 2 },
+                { key: 'sortino_a', label: 'Sortino (ann.)', type: 'decimal', digits: 2 },
+                { key: 'max_drawdown', label: 'Max. Drawdown', type: 'percent', digits: 2 },
+                { key: 'start_datum', label: 'Start D.', type: 'date_str' },
+                { key: 'end_datum', label: 'Ende D.', type: 'date_str' },
+            ];
+            kpiOrder.forEach(kpi => tableHtml += `<th>${kpi.label}</th>`);
+            tableHtml += '</tr></thead><tbody>';
+
+            traces.forEach(trace => {
+                if (trace.kpis) {
+                    tableHtml += '<tr>';
+                    tableHtml += `<td>${trace.series_name || 'N/A'}</td>`;
+                    kpiOrder.forEach(kpiDef => {
+                        const val = trace.kpis[kpiDef.key];
+                        let formattedVal = formatKpiValue(val, kpiDef.type, kpiDef.digits);
+                        let kpiClass = '';
+                        if (['ges_rendite', 'cagr', 'sharpe_a', 'sortino_a'].includes(kpiDef.key) && parseFloat(val) > 0) {
+                            kpiClass = 'positive-kpi';
+                        } else if (['ges_rendite', 'cagr', 'max_drawdown'].includes(kpiDef.key) && parseFloat(val) < 0) {
+                            kpiClass = 'negative-kpi';
+                        }
+                        if (kpiDef.key === 'max_drawdown' && parseFloat(val) <= 0) { 
+                            kpiClass = Math.abs(parseFloat(val)) > 0.0001 ? 'negative-kpi' : '';
+                        }
+                        tableHtml += `<td class="${kpiClass}">${formattedVal}</td>`;
+                    });
+                    tableHtml += '</tr>';
+                }
+            });
+            tableHtml += '</tbody></table>';
+            kpiTableDiv.innerHTML = tableHtml;
+        }
+
+        // --- EVENT LISTENER ---
+        document.querySelectorAll('input[name="skala"], #benchmark_select_experten')
+            .forEach(element => {
+                element.addEventListener('change', submitAnalyseFormMitNeuerUrl);
+        });
+
+        if (zeitraumPresetFilterElement) {
+            zeitraumPresetFilterElement.addEventListener('change', function() {
+                toggleBenutzerdefinierterZeitraumFilter();
+                if (this.value !== 'Benutzerdefiniert') {
+                    submitAnalyseFormMitNeuerUrl();
+                }
+            });
+            toggleBenutzerdefinierterZeitraumFilter(); 
+        }
+        if (benutzerdefAnwendenBtnElement) {
+            benutzerdefAnwendenBtnElement.addEventListener('click', submitAnalyseFormMitNeuerUrl);
+        }
+        
+        document.querySelectorAll('.expert-pill-link').forEach(pill => {
+            pill.addEventListener('click', function(event) {
+                event.preventDefault();
+                const id = this.dataset.id;
+                const type = this.dataset.type;
+                const targetArray = type === 'wp' ? ausgewaehlteWpIds : ausgewaehltePortfolioIds;
+                const index = targetArray.indexOf(id);
+                if (index > -1) { targetArray.splice(index, 1); } 
+                else { targetArray.push(id); }
+                submitAnalyseFormMitNeuerUrl();
+            });
+        });
+
+        if (benchmarkSelectElementExperten) {
+            new Choices(benchmarkSelectElementExperten, {
+                searchEnabled: true, shouldSort: false, placeholder: false, itemSelectText: 'Auswählen'
+            });
+        }
+
+        // --- CHART-LOGIK ---
+        const chartDataJsonExperten = '{{ chart_daten_json|escapejs|default:"null" }}'; 
+        
+        if (chartDataJsonExperten && chartDataJsonExperten !== 'null' && plotlyChartDivExperten) {
+            try {
+                const chartPackage = JSON.parse(chartDataJsonExperten);
+                if (chartPackage && chartPackage.traces && Array.isArray(chartPackage.traces) && chartPackage.traces.length > 0) {
+                    const plotlyPreparedTraces = [];
+                    chartPackage.traces.forEach(traceData => {
+                        let singlePlotlyTrace;
+                         if (!traceData.dates || !traceData.values || traceData.dates.length === 0 || traceData.values.length === 0) {
+                            if (traceData.chart_type_plotly === 'candlestick' && (!traceData.open || !traceData.high || !traceData.low || !traceData.close)) { return; } 
+                            else if (traceData.chart_type_plotly !== 'candlestick') { return; }
+                        }
+                        if (traceData.chart_type_plotly === 'candlestick') {
+                             if (traceData.open && traceData.open.length === traceData.dates.length) {
+                                singlePlotlyTrace = {
+                                    x: traceData.dates, open: traceData.open, high: traceData.high,
+                                    low: traceData.low, close: traceData.close, type: 'candlestick',
+                                    name: traceData.series_name,
+                                    increasing: { line: { color: '#28a745', width:1.5 }, fillcolor: 'rgba(40,167,69,0.7)' }, 
+                                    decreasing: { line: { color: '#dc3545', width:1.5 }, fillcolor: 'rgba(220,53,69,0.7)' },
+                                    hoverlabel: { namelength: -1 }
+                                };
+                            } else { return; }
+                        } else { 
+                            singlePlotlyTrace = {
+                                x: traceData.dates, y: traceData.values, mode: 'lines', type: 'scatter',
+                                name: traceData.series_name,
+                                line: { 
+                                    color: traceData.line_color || '#70a0ff', 
+                                    width: traceData.series_name && traceData.series_name.includes("(Benchmark)") ? 1.5 : 2,
+                                    dash: traceData.dash_style || 'solid'
+                                },
+                                hoverlabel: { namelength: -1 }
+                            };
+                        }
+                        if (singlePlotlyTrace) {
+                            singlePlotlyTrace._originalX = [...traceData.dates];
+                            singlePlotlyTrace._originalY = [...traceData.values];
+                            plotlyPreparedTraces.push(singlePlotlyTrace);
+                        }
+                    });
+
+                    if (plotlyPreparedTraces.length > 0) {
+                        const layout = {
+                            title: { text: null },
+                            showlegend: true, 
+                            xaxis: { 
+                                title: null, type: 'date', color: '#b0c4de', gridcolor: '#223044', 
+                                linecolor: '#2c3e50', tickfont: { color: '#b0c4de', size: 10 },
+                                rangeslider: { 
+                                    visible: true, bgcolor: '#101829', bordercolor: '#2c3e50', 
+                                    borderwidth: 1, thickness: 0.12 
+                                }
+                            },
+                            yaxis: { 
+                                title: { text: chartPackage.y_axis_title || 'Wert' }, 
+                                color: '#b0c4de', gridcolor: '#223044', 
+                                linecolor: '#2c3e50', tickfont: { color: '#b0c4de', size: 10 },
+                                type: chartPackage.skala === 'log' ? 'log' : 'linear',
+                                autorange: true 
+                            },
+                            plot_bgcolor: '#0a101f', paper_bgcolor: 'transparent', 
+                            font: { color: '#d1d9e6', size: 11 },
+                            margin: { l: 50, r: 25, b: 60, t: 70, pad: 4 }, 
+                            legend: { 
+                                orientation: "h", 
+                                yanchor: "bottom", y: 1.02, 
+                                xanchor: "left", x: 0.01,
+                                font: {color: '#d1d9e6'}, bgcolor: 'rgba(16, 24, 41,0.0)', 
+                                bordercolor: '#223044'
+                            },
+                            hovermode: 'x unified',
+                            hoverlabel: { 
+                                bgcolor: '#101829',
+                                font: { color: '#e8eff7', size: 11 },
+                                bordercolor: '#2c3e50',
+                                namelength: -1 
+                            }
+                        };
+                        Plotly.newPlot(plotlyChartDivExperten, plotlyPreparedTraces, layout, {responsive: true, displaylogo: false});
+                        aktuellerChartZustand = { 
+                            traces: plotlyPreparedTraces.map(t => ({...t})), 
+                            layout: JSON.parse(JSON.stringify(layout)) 
+                        };
+                        
+                        displayKpis(chartPackage.traces); // KPI-Anzeige aufrufen
+
+                    } else {
+                         plotlyChartDivExperten.innerHTML = "<p class='text-muted p-3'>Keine gültigen Datenreihen zum Anzeigen nach Aufbereitung gefunden.</p>";
+                         kpiTableDiv.innerHTML = '<p class="text-muted">Keine Kennzahlen verfügbar.</p>';
+                    }
+                } else {
+                    plotlyChartDivExperten.innerHTML = "<p class='text-muted p-3'>Keine ausreichenden Chartdaten (Traces) für die Auswahl vorhanden.</p>";
+                    kpiTableDiv.innerHTML = '<p class="text-muted">Keine Kennzahlen verfügbar.</p>';
+                }
+            } catch (e) {
+                console.error("Fehler beim Parsen/Rendern (Experten):", e);
+                plotlyChartDivExperten.innerHTML = "<p class='text-danger p-3'>Fehler beim Laden des Charts.</p>";
+                kpiTableDiv.innerHTML = '<p class="text-danger">Fehler beim Laden der Kennzahlen.</p>';
+            }
+        } else if ( ausgewaehlteWpIds.length > 0 || ausgewaehltePortfolioIds.length > 0 ) { 
+             if (plotlyChartDivExperten && !plotlyChartDivExperten.querySelector('p') && !document.querySelector('.alert-warning')) {
+                 plotlyChartDivExperten.innerHTML = "<p class='text-muted p-3'>Chartdaten werden geladen oder es sind keine Daten für die Auswahl verfügbar.</p>";
+             }
+             kpiTableDiv.innerHTML = '<p class="text-muted">Kennzahlen werden geladen...</p>';
+        } else {
+             if(plotlyChartDivExperten) plotlyChartDivExperten.innerHTML = ""; 
+             kpiTableDiv.innerHTML = '<p class="text-muted">KPIs erscheinen hier...</p>';
+        }
+        
+        initialisierePillStatus(); 
+
+        // Event Listener für Rebase-Button
+        if (rebaseButton) {
+            rebaseButton.addEventListener('click', function() {
+                if (!aktuellerChartZustand || !aktuellerChartZustand.traces || aktuellerChartZustand.traces.length === 0 || !plotlyChartDivExperten.layout) {
+                    alert("Bitte zuerst einen Chart mit Daten anzeigen lassen und einen Zeitraum auswählen.");
+                    return;
+                }
+                let newStartDateISO;
+                if (plotlyChartDivExperten.layout.xaxis && plotlyChartDivExperten.layout.xaxis.range && plotlyChartDivExperten.layout.xaxis.range[0]) {
+                    newStartDateISO = plotlyChartDivExperten.layout.xaxis.range[0].substring(0, 10);
+                } else if (aktuellerChartZustand.traces[0] && aktuellerChartZustand.traces[0]._originalX.length > 0) {
+                    newStartDateISO = aktuellerChartZustand.traces[0]._originalX[0];
+                } else {
+                    alert("Startdatum für Neuberechnung konnte nicht ermittelt werden.");
+                    return;
+                }
+                const rebasedPlotlyTraces = [];
+                let rebaseErrorOccurredInLoop = false;
+                aktuellerChartZustand.traces.forEach(originalTraceData => {
+                    if (originalTraceData.type === 'candlestick') { 
+                        rebasedPlotlyTraces.push({...originalTraceData}); return;
+                    }
+                    const originalX = originalTraceData._originalX; 
+                    const originalY = originalTraceData._originalY;
+                    let startIndex = originalX.findIndex(dateStr => dateStr >= newStartDateISO);
+                    if (startIndex === -1) { return; } // Keine Daten ab diesem Punkt für DIESEN Trace
+                    
+                    const newX = originalX.slice(startIndex);
+                    const newY_raw = originalY.slice(startIndex);
+
+                    if (newX.length === 0 || newY_raw.length === 0) { return; } // Keine Daten nach Slice
+
+                    const firstVal = newY_raw[0];
+                    let rebasedY;
+                    if (firstVal !== null && !isNaN(firstVal) && firstVal !== 0) {
+                        rebasedY = newY_raw.map(val => (val / firstVal) * 100);
+                        if (rebasedY.length > 0) rebasedY[0] = 100.0;
+                    } else {
+                        rebasedY = new Array(newX.length).fill(100.0);
+                        if (!rebaseErrorOccurredInLoop) {
+                             console.warn(`Hinweis: Für '${originalTraceData.name}' konnte Indexierung ab ${newStartDateISO} nicht durchgeführt werden (Startwert: ${firstVal}).`);
+                             rebaseErrorOccurredInLoop = true;
+                        }
+                    }
+                    const rebasedTrace = { ...originalTraceData }; // Kopiert _originalX/_originalY mit!
+                    rebasedTrace.x = newX;
+                    rebasedTrace.y = rebasedY.map(y => parseFloat(y.toFixed(4)));
+                    rebasedPlotlyTraces.push(rebasedTrace);
+                });
+
+                if (rebaseErrorOccurredInLoop) {
+                    alert(`Hinweis: Für eine oder mehrere Linien konnte die Indexierung ab ${newStartDateISO} nicht durchgeführt werden (Startwert war 0 oder ungültig). Diese Linien starten bei 100, zeigen aber evtl. nicht die korrekte relative Entwicklung ab diesem Punkt.`);
+                }
+
+                if (rebasedPlotlyTraces.length > 0) {
+                    const newLayout = JSON.parse(JSON.stringify(aktuellerChartZustand.layout)); 
+                    newLayout.yaxis.title.text = `Performance Indexiert (Rebased ab ${newStartDateISO.split('-').reverse().join('.')})`;
+                    newLayout.xaxis.autorange = true; 
+                    Plotly.react(plotlyChartDivExperten, rebasedPlotlyTraces, newLayout);
+                    // Wichtig: aktuellerChartZustand.traces NICHT mit rebasedTraces überschreiben,
+                    // damit die _originalX/_originalY für weitere Rebase-Operationen erhalten bleiben.
+                    // Stattdessen speichern wir die rebased Traces temporär oder aktualisieren nur die Y-Werte im aktuellen Zustand,
+                    // aber das ist komplexer. Fürs Erste wird das Layout im Zustand aktualisiert.
+                    aktuellerChartZustand.layout = newLayout; // Damit der Titel bei mehrfachem Rebase nicht verloren geht
+                                                              // und die Achsen ggf. angepasst bleiben.
+                } else {
+                    alert("Keine Daten zum Anzeigen nach Neuberechnung vorhanden.");
+                }
+            });
+        }
+    });
+    </script>
+{% endblock %}

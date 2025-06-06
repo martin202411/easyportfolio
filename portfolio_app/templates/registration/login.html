@@ -1,0 +1,70 @@
+{% extends "portfolio_app/base.html" %} {% load i18n %} {% block title %}{% trans "Log in" %} - EasyPortfolio{% endblock title %}
+
+{% block content %}
+<div class="container mt-5 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white"> {# Du kannst die Farben anpassen #}
+                    <h3 class="text-center mb-0">{% trans "Log in" %}</h3>
+                </div>
+                <div class="card-body p-4">
+                    {% if form.errors %}
+                        <div class="alert alert-danger" role="alert">
+                            {% blocktrans %}Your username and password didn't match. Please try again.{% endblocktrans %}
+                        </div>
+                    {% endif %}
+
+                    {% if next %}
+                        {% if user.is_authenticated %}
+                            <div class="alert alert-warning" role="alert">
+                            {% blocktrans %}Your account doesn't have access to this page. To proceed,
+                            please log in with an account that has access.{% endblocktrans %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info" role="alert">
+                            {% blocktrans %}Please log in to see this page.{% endblocktrans %}
+                            </div>
+                        {% endif %}
+                    {% endif %}
+
+                    <form method="post" action="{% url 'login' %}">
+                        {% csrf_token %}
+
+                        <div class="mb-3">
+                            <label for="{{ form.username.id_for_label }}" class="form-label">{{ form.username.label_tag|default:"Username" }}</label>
+                            <input type="text" name="{{ form.username.name }}" autocomplete="username"
+                                   autofocus required id="{{ form.username.id_for_label }}"
+                                   class="form-control form-control-lg {% if form.username.errors %}is-invalid{% endif %}"
+                                   value="{{ form.username.value|default:'' }}">
+                            {% if form.username.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.username.errors|join:", " }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.password.id_for_label }}" class="form-label">{{ form.password.label_tag|default:"Password" }}</label>
+                            <input type="password" name="{{ form.password.name }}" autocomplete="current-password"
+                                   required id="{{ form.password.id_for_label }}"
+                                   class="form-control form-control-lg {% if form.password.errors %}is-invalid{% endif %}">
+                            {% if form.password.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.password.errors|join:", " }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <input type="hidden" name="next" value="{{ next|default:'' }}">
+                        <button type="submit" class="btn btn-primary btn-lg w-100 mt-3">{% trans 'Log in' %}</button>
+                    </form>
+                    <p class="mt-4 text-center">
+                        <small><a href="{% url 'password_reset' %}">{% trans 'Forgotten your password?' %}</a></small>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}

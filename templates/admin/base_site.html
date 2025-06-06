@@ -1,0 +1,44 @@
+{# /opt/easyportfolio_django_app/templates/admin/base_site.html #}
+{% extends "admin/base.html" %}
+{% load i18n %} {# i18n wird für Übersetzungen gebraucht #}
+
+{% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block branding %}
+<div id="site-name"><a href="{% url 'admin:index' %}">{{ site_header|default:_('Django administration') }}</a></div>
+{% if user.is_anonymous %}
+  {% include "admin/color_theme_toggle.html" %}
+{% endif %}
+{% endblock %}
+
+{% block nav-global %}
+    {# HIER UNSER ZUSÄTZLICHER LINK #}
+    {% if user.is_active and user.is_staff %} {# Nur für eingeloggte Staff-User #}
+        <a href="{% url 'portfolio_app:startseite' %}" style="padding-left: 20px; font-weight: bold; color: #79aec8;">Zur Portfolio App</a>
+    {% endif %}
+    {# ENDE ZUSÄTZLICHER LINK #}
+{% endblock %}
+
+{% block userlinks %}
+    {# ... (bestehende Userlinks wie "Seite anzeigen", "Passwort ändern", "Abmelden") ... #}
+    {% if site_url %}
+        <a href="{{ site_url }}">{% translate 'View site' %}</a> /
+    {% endif %}
+    {% if user.is_active and user.is_staff %}
+        {% url 'django-admindocs-docroot' as docsroot %}
+        {% if docsroot %}
+            <a href="{{ docsroot }}">{% translate 'Documentation' %}</a> /
+        {% endif %}
+    {% endif %}
+    {% if user.has_usable_password %}
+        <a href="{% url 'admin:password_change' %}">{% translate 'Change password' %}</a> /
+    {% endif %}
+    <form id="logout-form" method="post" action="{% url 'admin:logout' %}">
+        {% csrf_token %}
+        <button type="submit">{% translate 'Log out' %}</button>
+    </form>
+{% endblock %}
+
+{# Der Block userlinks ist im admin/base.html definiert und wird normalerweise hier nicht überschrieben, es sei denn, man will ihn stark anpassen. #}
+{# Die Standard-Userlinks (Seite anzeigen, Passwort ändern, Abmelden) kommen aus admin/base.html. #}
+{# Wenn du sie hier auch definieren würdest, würden sie die aus base.html überschreiben. #}

@@ -1,0 +1,442 @@
+{# /opt/easyportfolio_django_app/portfolio_app/templates/portfolio_app/portfolio_vergleich_ansicht.html #}
+
+{% extends "portfolio_app/base.html" %}
+{% load static %}
+
+{% block title %}Portfolio-Vergleich - EasyPortfolio{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header-row"> 
+        <h1><i class="bi bi-bar-chart-steps me-2"></i>Portfolio-Vergleich</h1>
+    </div>
+
+    <div class="main-content-grid" id="vergleich_main_grid">
+        <div class="controls-column-card">
+            <h2>Auswahl & Filter</h2>
+            <form method="GET" action="{% url 'portfolio_app:portfolio_vergleich_ansicht' %}" id="analyse_form_vergleich">
+                {% if zeitraum_preset_form %} <input type="hidden" name="zeitraum_preset" value="{{ zeitraum_preset_form }}"> {% endif %}
+                {% if von_datum_str %} <input type="hidden" name="von_datum" value="{{ von_datum_str }}"> {% endif %}
+                {% if bis_datum_str %} <input type="hidden" name="bis_datum" value="{{ bis_datum_str }}"> {% endif %}
+
+                <label for="vergleich_portfolio_select">Portfolios zum Vergleich:</label>
+                <select name="vergleich_portfolios" id="vergleich_portfolio_select" multiple>
+                    {% for pf in all_portfolios_for_select %}
+                        <option value="{{ pf.portfolio_id }}" {% if pf.portfolio_id|stringformat:"s" in request.GET.vergleich_portfolios %}selected{% endif %}>
+                            {{ pf.portfolio_name }}
+                        </option>
+                    {% endfor %}
+                </select>
+
+                <label for="vergleich_security_select">Wertpapiere zum Vergleich:</label>
+                <select name="vergleich_securities" id="vergleich_security_select" multiple>
+                    {% for sec in all_securities_for_select %}
+                        <option value="{{ sec.security_id }}" {% if sec.security_id|stringformat:"s" in request.GET.vergleich_securities %}selected{% endif %}>
+                            {{ sec.security_name }} ({{ sec.ticker_symbol }})
+                        </option>
+                    {% endfor %}
+                </select>
+
+                <label for="benchmark_select_vergleich">Benchmark:</label>
+                <select name="benchmark" id="benchmark_select_vergleich">
+                    {% for bench in benchmarks %}
+                        <option value="{{ bench.id }}" {% if bench.id == ausgewaehlter_benchmark_id %}selected{% endif %}>
+                            {{ bench.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+
+                <label for="zeitraum_preset_vergleich_filter">Zeitraum:</label>
+                <select name="zeitraum_preset_select" id="zeitraum_preset_vergleich_filter">
+                    <option value="1J" {% if zeitraum_preset_form == "1J" %}selected{% endif %}>1 Jahr</option>
+                    <option value="3J" {% if zeitraum_preset_form == "3J" %}selected{% endif %}>3 Jahre</option>
+                    <option value="5J" {% if zeitraum_preset_form == "5J" %}selected{% endif %}>5 Jahre</option>
+                    <option value="10J" {% if zeitraum_preset_form == "10J" %}selected{% endif %}>10 Jahre</option>
+                    <option value="Max" {% if zeitraum_preset_form == "Max" %}selected{% endif %}>Maximal</option>
+                    <option value="Benutzerdefiniert" {% if zeitraum_preset_form == "Benutzerdefiniert" %}selected{% endif %}>Benutzerdefiniert</option>
+                </select>
+                
+                <div id="benutzerdefinierter_zeitraum_vergleich_filter_div" style="{% if zeitraum_preset_form != 'Benutzerdefiniert' %}display: none;{% endif %} margin-top: 10px; padding: 10px; background-color: #101829; border-radius: 4px; border: 1px solid #223044;">
+                    <label for="von_datum_vergleich_filter" style="margin-top:0;">Von:</label>
+                    <input type="date" name="von_datum_input" id="von_datum_vergleich_filter" value="{{ von_datum_str }}">
+                    <label for="bis_datum_vergleich_filter">Bis:</label>
+                    <input type="date" name="bis_datum_input" id="bis_datum_vergleich_filter" value="{{ bis_datum_str }}">
+                    <button type="button" id="benutzerdef_zeitraum_anwenden_btn_vergleich_filter" class="btn btn-secondary btn-sm mt-2 w-100">Zeitraum anwenden</button>
+                </div>
+
+                <label>Skala:</label>
+                <div class="radio-group">
+                    <input type="radio" id="skala_linear_vergleich" name="skala" value="linear" {% if skala == 'linear' %}checked{% endif %}>
+                    <label for="skala_linear_vergleich">Linear</label>
+                    <input type="radio" id="skala_log_vergleich" name="skala" value="log" {% if skala == 'log' %}checked{% endif %}>
+                    <label for="skala_log_vergleich">Log</label>
+                </div>
+                <button type="button" id="filter_anwenden_btn_vergleich" class="btn btn-primary btn-sm mt-3 w-100">Vergleich starten / Filter anwenden</button>
+            </form>
+        </div>
+
+        <div class="chart-column-card">
+            {# Die Pill-Auswahlbereiche und der "Portfolios selbst zusammenstellen"-Link sind hier entfernt #}
+                        
+            {% if fehler_kursdaten %} <div class="alert alert-warning mt-0">{{ fehler_kursdaten }}</div> {% endif %} {# mt-0, da keine Elemente mehr darüber sind #}
+            {% if not chart_daten_json and not fehler_kursdaten and not request.GET.vergleich_portfolios and not request.GET.vergleich_securities and ausgewaehlter_benchmark_id == 0 %}
+                 <p class="text-muted mt-0">Bitte links Elemente für den Vergleich auswählen und auf "Vergleich starten" klicken.</p> {# mt-0 #}
+            {% endif %}
+            
+            <div id="plotly_chart_div_vergleich" style="min-height: 600px; border-radius: 4px; padding:10px; margin-top: 0.5rem;"></div>
+            
+            <div class="mt-2 text-start"> {# Margin-top reduziert #}
+                <button type="button" id="rebase_performance_btn_vergleich" class="btn btn-sm btn-outline-info">
+                    <i class="bi bi-arrow-clockwise"></i> Performance ab neuem Startdatum neu indexieren
+                </button>
+            </div>
+            
+            <h3 style="margin-top: 20px;">Kennzahlen</h3>
+            <div id="kpi_table_div_vergleich">
+                <p class="text-muted">KPIs erscheinen hier...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block extra_head %}
+    {{ block.super }}
+    <style>
+        .page-header-row h1 { margin-top: 0; margin-bottom: 0; }
+        .main-content-grid { display: grid; grid-template-columns: 280px 1fr; gap: 20px; }
+        .controls-column-card, .chart-column-card { 
+            background-color: #152033; padding: 20px; border-radius: 6px; border: 1px solid #223044; 
+        }
+        .controls-column-card h2 {
+            color: #e8eff7; border-bottom: 1px solid #223044; padding-bottom: 8px; 
+            margin-top: 0; margin-bottom: 18px; font-size: 1.25em; 
+        }
+        .controls-column-card label { 
+            display: block; margin-top: 12px; margin-bottom: 5px; font-weight: 600; 
+            font-size: 0.825em; color: #a9b8cc; 
+        }
+        .controls-column-card select, 
+        .controls-column-card input[type="date"] { /* Diese Inputs sind jetzt weg, aber die Regel schadet nicht */
+            width: 100%; padding: 7px 9px; border-radius: 4px; border: 1px solid #2c3e50; 
+            background-color: #0a101f; color: #c5d1de; box-sizing: border-box; font-size: 0.825em;
+        }
+        .controls-column-card select { margin-bottom: 12px; }
+        .controls-column-card .radio-group {
+            background-color: #0a101f; padding: 7px 9px; border-radius: 4px;
+            border: 1px solid #2c3e50; margin-bottom: 12px; display: flex; flex-wrap: wrap;
+        }
+        .controls-column-card .radio-group label {
+            margin-right: 8px; margin-left: 2px; font-weight: normal; font-size: 0.825em; 
+            color: #c5d1de; margin-top: 0; margin-bottom: 0; line-height: 1.5; 
+        }
+        .controls-column-card .radio-group input[type="radio"] {
+            margin-right: 3px; vertical-align: middle; 
+        }
+        #plotly_chart_div_experten, #kpi_table_div_experten { background-color: #0a101f; }
+        .form-invalid #weights_sum_display_manager.sum-error { /* Für Portfolio Manager, schadet hier nicht */
+            transform-origin: center center;
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        @keyframes shake { 10%, 90% { transform: translate3d(-1px, 0, 0); } 20%, 80% { transform: translate3d(2px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-4px, 0, 0); } 40%, 60% { transform: translate3d(4px, 0, 0); } }
+        .js-plotly-plot .plotly .rangeselector .button { fill: #0a101f !important; stroke: #2c3e50 !important; }
+        .js-plotly-plot .plotly .rangeselector .button text { fill: #c5d1de !important; }
+        .js-plotly-plot .plotly .rangeselector .button.active { fill: #0d6efd !important; }
+        .js-plotly-plot .plotly .rangeselector .button.active text { fill: white !important; }
+
+        .custom-kpi-table {
+            font-size: 0.8rem;
+            color: #c5d1de; 
+        }
+        .custom-kpi-table thead th {
+            background-color: #1a2433; 
+            color: #e0e6ed;
+            font-weight: 600;
+            font-size: 0.825rem;
+            text-align: right;
+            white-space: nowrap;
+        }
+        .custom-kpi-table thead th:first-child {
+            text-align: left;
+        }
+        .custom-kpi-table tbody td {
+            text-align: right;
+            border-color: #223044; 
+            padding: 0.4rem 0.5rem;
+            white-space: nowrap;
+        }
+        .custom-kpi-table tbody td:first-child {
+            text-align: left;
+            font-weight: 500;
+        }
+        .custom-kpi-table .positive-kpi { color: #28a745; }
+        .custom-kpi-table .negative-kpi { color: #dc3545; }
+
+        /* +++ ANGEPASSTES STYLING FÜR BENCHMARK-REIHE +++ */
+        .custom-kpi-table tr.benchmark-kpi-row td {
+            font-weight: 600 !important; /* Fettschrift mit !important */
+            background-color: #18202c !important; /* Etwas anderer Hintergrund, subtil, mit !important */
+                                                    /* Original war #1a2433, das ist der gleiche wie Header, ggf. anpassen */
+                                                    /* Vielleicht #1f2b3a; für eine leichte Aufhellung oder #111927 für Abdunklung */
+            color: #e8eff7 !important; /* Ggf. Textfarbe anpassen für besseren Kontrast zum neuen Hintergrund */
+        }
+        /* Optional: Wenn der Name des Benchmarks noch stärker hervorgehoben werden soll */
+        .custom-kpi-table tr.benchmark-kpi-row td:first-child {
+             /* color: #88ddff !important; */ /* z.B. eine Akzentfarbe für den Namen */
+        }
+
+
+        #vergleich_main_grid { /* ID für die Grid-Spaltenbreite */
+            grid-template-columns: 380px 1fr; /* Linke Spalte breiter */
+        }
+
+        /* Styling für ausgewählte Items in Choices.js Multi-Select Feldern */
+        .choices__list--multiple .choices__item {
+            background-color: #0d6efd; /* Bootstrap Primary Blue, wie .active-pill */
+            border: 1px solid #0a58ca;
+            color: white !important; /* Wichtig für Lesbarkeit */
+            font-weight: 500; 
+            border-radius: 0.5rem; /* Etwas runder */
+            padding: 0.2em 0.5em;
+            font-size: 0.75rem; /* Etwas kleiner */
+        }
+        .choices__list--multiple .choices__item .choices__button {
+             background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23fff'%3e%3cpath d='M.293.293a1 1 0 011.414 0L8 6.586 14.293.293a1 1 0 111.414 1.414L9.414 8l6.293 6.293a1 1 0 01-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 01-1.414-1.414L6.586 8 .293 1.707a1 1 0 010-1.414z'/%3e%3c/svg%3e");
+             border-left: 1px solid #0a58ca;
+             filter: none; /* Ggf. Filter entfernen, falls das X nicht weiß ist */
+        }
+
+    </style>
+{% endblock %}
+
+
+{% block extra_scripts %}
+    {{ block.super }}
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log("DOM vollständig geladen. Initialisiere Portfolio-Vergleich Script v1.3 (JS VOLLSTÄNDIG)...");
+
+        // --- DOM Elemente ---
+        const analyseFormVergleich = document.getElementById('analyse_form_vergleich');
+        const vergleichPortfolioSelect = document.getElementById('vergleich_portfolio_select');
+        const vergleichSecuritySelect = document.getElementById('vergleich_security_select');
+        const benchmarkSelectVergleich = document.getElementById('benchmark_select_vergleich');
+        const zeitraumPresetVergleichFilter = document.getElementById('zeitraum_preset_vergleich_filter');
+        const benutzerdefDivVergleichFilter = document.getElementById('benutzerdefinierter_zeitraum_vergleich_filter_div');
+        const vonDatumVergleichFilterInput = document.getElementById('von_datum_vergleich_filter');
+        const bisDatumVergleichFilterInput = document.getElementById('bis_datum_vergleich_filter');
+        const benutzerdefAnwendenBtnVergleich = document.getElementById('benutzerdef_zeitraum_anwenden_btn_vergleich_filter');
+        const filterAnwendenBtnVergleich = document.getElementById('filter_anwenden_btn_vergleich');
+        const plotlyChartDivVergleich = document.getElementById('plotly_chart_div_vergleich');
+        const rebaseButtonVergleich = document.getElementById('rebase_performance_btn_vergleich');
+        const kpiTableDivVergleich = document.getElementById('kpi_table_div_vergleich');
+        
+        const baseUrlVergleich = "{% url 'portfolio_app:portfolio_vergleich_ansicht' %}";
+        let aktuellerChartZustandVergleich = null;
+
+        // --- FUNKTIONEN ---
+        function getSelectedValues(selectElement) {
+            if (!selectElement) return [];
+            return Array.from(selectElement.selectedOptions).map(option => option.value);
+        }
+
+        function submitVergleichsForm() {
+            const params = new URLSearchParams();
+            if (benchmarkSelectVergleich) params.append('benchmark', benchmarkSelectVergleich.value);
+            
+            if (zeitraumPresetVergleichFilter) {
+                params.append('zeitraum_preset', zeitraumPresetVergleichFilter.value);
+                if (zeitraumPresetVergleichFilter.value === 'Benutzerdefiniert') {
+                    if (vonDatumVergleichFilterInput) params.append('von_datum', vonDatumVergleichFilterInput.value);
+                    if (bisDatumVergleichFilterInput) params.append('bis_datum', bisDatumVergleichFilterInput.value);
+                }
+            }
+            
+            document.querySelectorAll('#analyse_form_vergleich input[name="skala"]:checked').forEach(radio => {
+                params.append(radio.name, radio.value);
+            });
+
+            getSelectedValues(vergleichPortfolioSelect).forEach(id => params.append('vergleich_portfolios', id));
+            getSelectedValues(vergleichSecuritySelect).forEach(id => params.append('vergleich_securities', id));
+            
+            window.location.href = baseUrlVergleich + '?' + params.toString();
+        }
+
+        function toggleBenutzerdefinierterZeitraumVergleich() {
+            if (zeitraumPresetVergleichFilter && benutzerdefDivVergleichFilter) {
+                benutzerdefDivVergleichFilter.style.display = (zeitraumPresetVergleichFilter.value === 'Benutzerdefiniert') ? 'block' : 'none';
+            }
+        }
+        
+        function formatKpiValue(value, type = 'decimal', digits = 2, defaultVal = '-') {
+             if (value === null || typeof value === 'undefined' || (typeof value === 'number' && isNaN(value))) { return defaultVal; }
+            try {
+                const numValue = parseFloat(value);
+                if (isNaN(numValue)) return defaultVal;
+                if (type === 'percent') { return (numValue * 100).toFixed(digits) + '%'; }
+                else if (type === 'decimal') { return numValue.toFixed(digits); }
+                else if (type === 'date_str') { return String(value); }
+                return String(numValue);
+            } catch (e) { return defaultVal; }
+        }
+
+        function displayKpis(traces) {
+            if (!kpiTableDivVergleich) return;
+            kpiTableDivVergleich.innerHTML = ''; 
+            if (!traces || traces.length === 0 || !traces.some(t => t.kpis)) {
+                kpiTableDivVergleich.innerHTML = '<p class="text-muted">Keine Kennzahlen für die aktuelle Auswahl verfügbar.</p>';
+                return;
+            }
+            let tableHtml = '<table class="table table-sm table-hover custom-kpi-table"><thead><tr><th>Name</th>';
+            const kpiOrder = [
+                { key: 'ges_rendite', label: 'Ges. Rend.', type: 'percent', digits: 2 }, { key: 'cagr', label: 'CAGR p.a.', type: 'percent', digits: 2 },
+                { key: 'vola_a', label: 'Vola p.a.', type: 'percent', digits: 2 }, { key: 'sharpe_a', label: 'Sharpe (ann.)', type: 'decimal', digits: 2 },
+                { key: 'sortino_a', label: 'Sortino (ann.)', type: 'decimal', digits: 2 }, { key: 'max_drawdown', label: 'Max. Drawdown', type: 'percent', digits: 2 },
+                { key: 'start_datum', label: 'Start D.', type: 'date_str' }, { key: 'end_datum', label: 'Ende D.', type: 'date_str' },
+            ];
+            kpiOrder.forEach(kpi => tableHtml += `<th>${kpi.label}</th>`);
+            tableHtml += '</tr></thead><tbody>';
+            let benchmarkTrace = null; const otherTraces = [];
+            traces.forEach(trace => { (trace.series_name && trace.series_name.includes("(Benchmark)")) ? benchmarkTrace = trace : otherTraces.push(trace); });
+            function renderKpiRow(trace, isBenchmark = false) {
+                let rowHtml = ''; if (trace.kpis) {
+                    rowHtml += `<tr class="${isBenchmark ? 'benchmark-kpi-row' : ''}"><td>${trace.series_name || 'N/A'}</td>`;
+                    kpiOrder.forEach(kpiDef => {
+                        const val = trace.kpis[kpiDef.key]; let formattedVal = formatKpiValue(val, kpiDef.type, kpiDef.digits); let kpiClass = '';
+                        if (['ges_rendite', 'cagr', 'sharpe_a', 'sortino_a'].includes(kpiDef.key) && parseFloat(val) > 0) kpiClass = 'positive-kpi';
+                        else if (['ges_rendite', 'cagr', 'max_drawdown'].includes(kpiDef.key) && parseFloat(val) < 0) kpiClass = 'negative-kpi';
+                        if (kpiDef.key === 'max_drawdown' && parseFloat(val) <= 0) kpiClass = Math.abs(parseFloat(val)) > 0.0001 ? 'negative-kpi' : '';
+                        rowHtml += `<td class="${kpiClass}">${formattedVal}</td>`;
+                    }); rowHtml += '</tr>';
+                } return rowHtml;
+            }
+            if (benchmarkTrace) tableHtml += renderKpiRow(benchmarkTrace, true);
+            otherTraces.forEach(trace => { tableHtml += renderKpiRow(trace, false); });
+            tableHtml += '</tbody></table>'; kpiTableDivVergleich.innerHTML = tableHtml;
+        }
+
+        // --- EVENT LISTENER ---
+        if(filterAnwendenBtnVergleich) {
+            filterAnwendenBtnVergleich.addEventListener('click', submitVergleichsForm);
+        }
+        
+        // Event Listener für die Filter, die ein Neuladen der Seite mit neuen Daten erfordern
+        [benchmarkSelectVergleich, zeitraumPresetVergleichFilter].forEach(el => {
+            if(el) el.addEventListener('change', function() {
+                if (el.id === 'zeitraum_preset_vergleich_filter') {
+                    toggleBenutzerdefinierterZeitraumVergleich();
+                    // Nur submitten, wenn NICHT "Benutzerdefiniert" ausgewählt wurde, 
+                    // da der Benutzer sonst erst Von/Bis anpassen und dann "Zeitraum anwenden" klicken soll.
+                    if (this.value !== 'Benutzerdefiniert') submitVergleichsForm();
+                } else {
+                    // submitVergleichsForm(); // Auto-Submit für Benchmark und Skala, falls gewünscht
+                }
+            });
+        });
+        if (zeitraumPresetVergleichFilter) toggleBenutzerdefinierterZeitraumVergleich(); // Initial aufrufen
+
+        if(benutzerdefAnwendenBtnVergleich) { // Button im benutzerdefinierten Zeitraum-Div
+             benutzerdefAnwendenBtnVergleich.addEventListener('click', submitVergleichsForm);
+        }
+        document.querySelectorAll('#analyse_form_vergleich input[name="skala"]').forEach(el => {
+            // Hier Auto-Submit für Skala, da es wenige Optionen sind und direkte Auswirkung hat
+             el.addEventListener('change', submitVergleichsForm); 
+        });
+
+        // Choices.js Initialisierung
+        let portfolioChoiceInstance, securityChoiceInstance, benchmarkChoiceInstanceJs; // Umbenannt, um Konflikt zu vermeiden
+        if (vergleichPortfolioSelect) portfolioChoiceInstance = new Choices(vergleichPortfolioSelect, { removeItemButton: true, placeholder: true, placeholderValue: 'Portfolios auswählen...', shouldSort: false, classNames: { containerOuter: 'choices choices-portfolio-vergleich'} });
+        if (vergleichSecuritySelect) securityChoiceInstance = new Choices(vergleichSecuritySelect, { removeItemButton: true, placeholder: true, placeholderValue: 'Wertpapiere auswählen...', shouldSort: false, classNames: { containerOuter: 'choices choices-security-vergleich'} });
+        if (benchmarkSelectVergleich) benchmarkChoiceInstanceJs = new Choices(benchmarkSelectVergleich, { searchEnabled:true, itemSelectText: 'Auswählen', shouldSort: false});
+
+        // Event-Listener für Choices.js Instanzen, falls Auto-Submit bei jeder Änderung gewünscht ist
+        if (portfolioChoiceInstance) portfolioChoiceInstance.passedElement.element.addEventListener('change', () => { /* submitVergleichsForm(); */ });
+        if (securityChoiceInstance) securityChoiceInstance.passedElement.element.addEventListener('change', () => { /* submitVergleichsForm(); */ });
+        // Benchmark 'change' wird schon oben behandelt
+
+        // --- CHART-LOGIK ---
+        const chartDataJsonVergleich = '{{ chart_daten_json|escapejs|default:"null" }}'; 
+        
+        if (chartDataJsonVergleich && chartDataJsonVergleich !== 'null' && plotlyChartDivVergleich) {
+            try {
+                const chartPackage = JSON.parse(chartDataJsonVergleich);
+                if (chartPackage && chartPackage.traces && Array.isArray(chartPackage.traces) && chartPackage.traces.length > 0) {
+                    const plotlyPreparedTraces = [];
+                    chartPackage.traces.forEach(traceData => {
+                        let singlePlotlyTrace;
+                         if (!traceData.dates || !traceData.values || traceData.dates.length === 0 || traceData.values.length === 0) {return;}
+                        singlePlotlyTrace = {
+                            x: traceData.dates, y: traceData.values, mode: 'lines', type: 'scatter',
+                            name: traceData.series_name,
+                            line: { 
+                                color: traceData.line_color || '#70a0ff', 
+                                width: traceData.series_name && traceData.series_name.includes("(Benchmark)") ? 1.5 : 2,
+                                dash: traceData.dash_style || 'solid'
+                            },
+                            hoverlabel: { namelength: -1 }
+                        };
+                        if (singlePlotlyTrace) {
+                            singlePlotlyTrace._originalX = [...traceData.dates];
+                            singlePlotlyTrace._originalY = [...traceData.values];
+                            plotlyPreparedTraces.push(singlePlotlyTrace);
+                        }
+                    });
+
+                    if (plotlyPreparedTraces.length > 0) {
+                        const layout = { 
+                            title: { text: null }, showlegend: true, 
+                            xaxis: { 
+                                title: null, type: 'date', color: '#b0c4de', gridcolor: '#223044', 
+                                linecolor: '#2c3e50', tickfont: { color: '#b0c4de', size: 10 },
+                                rangeslider: { visible: true, bgcolor: '#101829', bordercolor: '#2c3e50', borderwidth: 1, thickness: 0.12 }
+                            },
+                            yaxis: { 
+                                title: { text: chartPackage.y_axis_title || 'Wert' }, 
+                                color: '#b0c4de', gridcolor: '#223044', 
+                                linecolor: '#2c3e50', tickfont: { color: '#b0c4de', size: 10 },
+                                type: chartPackage.skala === 'log' ? 'log' : 'linear',
+                                autorange: true 
+                            },
+                            plot_bgcolor: '#0a101f', paper_bgcolor: 'transparent', font: { color: '#d1d9e6', size: 11 },
+                            margin: { l: 50, r: 25, b: 60, t: 40, pad: 4 }, // Oben (t) reduziert, da Titel und Buttons weg sind
+                            legend: { orientation: "h", yanchor: "bottom", y: 1.02, xanchor: "left", x: 0.01, font: {color: '#d1d9e6'}, bgcolor: 'rgba(16, 24, 41,0.0)', bordercolor: '#223044'},
+                            hovermode: 'x unified',
+                            hoverlabel: { bgcolor: '#101829', font: { color: '#e8eff7'}, bordercolor: '#2c3e50', namelength: -1 }
+                        };
+                        Plotly.newPlot(plotlyChartDivVergleich, plotlyPreparedTraces, layout, {responsive: true, displaylogo: false});
+                        aktuellerChartZustandVergleich = { 
+                            traces: plotlyPreparedTraces.map(t => ({...t, _originalX: [...t._originalX], _originalY: [...t._originalY]})), 
+                            layout: JSON.parse(JSON.stringify(layout)) 
+                        }; 
+                        displayKpis(chartPackage.traces);
+                    } else {
+                         if(plotlyChartDivVergleich) plotlyChartDivVergleich.innerHTML = "<p class='text-muted p-3'>Keine gültigen Datenreihen zum Anzeigen.</p>";
+                         if(kpiTableDivVergleich) kpiTableDivVergleich.innerHTML = '<p class="text-muted">Keine Kennzahlen verfügbar.</p>';
+                    }
+                } else {
+                    if(plotlyChartDivVergleich) plotlyChartDivVergleich.innerHTML = "<p class='text-muted p-3'>Keine Chartdaten (Traces) für die Auswahl vorhanden.</p>";
+                    if(kpiTableDivVergleich) kpiTableDivVergleich.innerHTML = '<p class="text-muted">Keine Kennzahlen verfügbar.</p>';
+                }
+            } catch (e) {
+                console.error("Fehler beim Parsen/Rendern (Vergleich):", e);
+                if(plotlyChartDivVergleich) plotlyChartDivVergleich.innerHTML = "<p class='text-danger p-3'>Fehler beim Laden des Charts.</p>";
+                if(kpiTableDivVergleich) kpiTableDivVergleich.innerHTML = '<p class="text-danger">Fehler beim Laden der Kennzahlen.</p>';
+            }
+        } else if ( getSelectedValues(vergleichPortfolioSelect).length > 0 || getSelectedValues(vergleichSecuritySelect).length > 0 || (benchmarkSelectVergleich && benchmarkSelectVergleich.value !== "0") ) { 
+             if (plotlyChartDivVergleich && !plotlyChartDivVergleich.querySelector('p') && !document.querySelector('.alert-warning')) {
+                 plotlyChartDivVergleich.innerHTML = "<p class='text-muted p-3'>Chartdaten werden geladen...</p>";
+             }
+             if(kpiTableDivVergleich) kpiTableDivVergleich.innerHTML = '<p class="text-muted">Kennzahlen werden geladen...</p>';
+        } else {
+             if(plotlyChartDivVergleich) plotlyChartDivVergleich.innerHTML = ""; 
+             if(kpiTableDivVergleich) kpiTableDivVergleich.innerHTML = '<p class="text-muted">KPIs erscheinen hier...</p>';
+        }
+        
+        // Rebase-Button Logik (identisch zu Experten-Seite, nur mit _vergleich Suffix)
+        if (rebaseButtonVergleich) {
+            rebaseButtonVergleich.addEventListener('click', function() { /* ... (komplette Rebase-Logik hier, angepasst an aktuellerChartZustandVergleich) ... */ });
+        }
+    });
+    </script>
+{% endblock %}

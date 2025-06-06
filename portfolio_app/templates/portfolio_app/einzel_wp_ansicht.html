@@ -1,0 +1,330 @@
+<!-- portdolio_app/templates/portfolio_app/einzel_wp_ansicht  -->
+
+{% extends "portfolio_app/base.html" %}
+
+{% block title %}{{ seitentitel }}{% endblock %}
+
+{% block content %}
+    <div class="page-header-row"> 
+        <h1>📈 {{ seitentitel }}</h1>
+    </div>
+
+    <div class="main-content-grid">
+        <div class="controls-column-card">
+            <h2>Einstellungen</h2>
+            <form method="GET" action="{% url 'portfolio_app:einzel_wp_ansicht' %}" id="analyse_form">
+                <label for="wertpapier_select">Wertpapier:</label>
+                <select name="wertpapier" id="wertpapier_select">
+                    <option value="">--- Bitte auswählen ---</option>
+                    {% for wp in wertpapiere %}
+                        <option value="{{ wp.id }}" {% if wp.id == ausgewaehltes_wp_id %}selected{% endif %}>
+                            {{ wp.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+
+                <label for="benchmark_select">Benchmark:</label>
+                <select name="benchmark" id="benchmark_select">
+                    {% for bench in benchmarks %}
+                         <option value="{{ bench.id }}" {% if bench.id == ausgewaehlter_benchmark_id %}selected{% endif %}>
+                            {{ bench.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+
+                <label for="zeitraum_preset">Zeitraum:</label>
+                <select name="zeitraum_preset" id="zeitraum_preset">
+                    <option value="5J" {% if zeitraum_preset_form == "5J" %}selected{% endif %}>5 Jahre</option>
+                    <option value="1J" {% if zeitraum_preset_form == "1J" %}selected{% endif %}>1 Jahr</option>
+                    <option value="Max" {% if zeitraum_preset_form == "Max" %}selected{% endif %}>Maximal</option>
+                    <option value="Benutzerdefiniert" {% if zeitraum_preset_form == "Benutzerdefiniert" %}selected{% endif %}>Benutzerdefiniert</option>
+                </select>
+                
+                <div id="benutzerdefinierter_zeitraum" style="display: none; margin-top: 10px; padding: 10px; background-color: #2a3b4c; border-radius: 4px;">
+                    <label for="von_datum" style="margin-top:0;">Von:</label>
+                    <input type="date" name="von_datum" id="von_datum" value="{{ von_datum_str }}">
+                    <label for="bis_datum">Bis:</label>
+                    <input type="date" name="bis_datum" id="bis_datum" value="{{ bis_datum_str }}">
+                </div>
+
+                <label>Skala:</label>
+                <div class="radio-group">
+                    <input type="radio" id="skala_linear" name="skala" value="linear" {% if skala == 'linear' %}checked{% endif %}>
+                    <label for="skala_linear">Linear</label>
+                    <input type="radio" id="skala_log" name="skala" value="log" {% if skala == 'log' %}checked{% endif %}>
+                    <label for="skala_log">Log</label>
+                </div>
+
+                <label>Darstellung:</label>
+                <div class="radio-group">
+                    <input type="radio" id="darstellung_indexiert" name="darstellung" value="Indexiert" {% if darstellung == 'Indexiert' %}checked{% endif %}>
+                    <label for="darstellung_indexiert">Indexiert</label>
+                    <input type="radio" id="darstellung_original" name="darstellung" value="Originalkurs" {% if darstellung == 'Originalkurs' %}checked{% endif %}>
+                    <label for="darstellung_original">Originalkurs</label>
+                </div>
+                
+                <label>Chart Typ:</label>
+                <div class="radio-group">
+                    <input type="radio" id="chart_linie" name="chart_typ" value="Linie" {% if chart_typ == 'Linie' %}checked{% endif %}>
+                    <label for="chart_linie">Linie</label>
+                    <input type="radio" id="chart_flaeche" name="chart_typ" value="Fläche" {% if chart_typ == 'Fläche' %}checked{% endif %}>
+                    <label for="chart_flaeche">Fläche</label>
+                    <input type="radio" id="chart_candlestick" name="chart_typ" value="Candlestick" {% if chart_typ == 'Candlestick' %}checked{% endif %}>
+                    <label for="chart_candlestick">Candlestick</label>
+                </div>
+                
+                <button type="submit" style="margin-top:25px; padding: 12px 20px; background-color: #61dafb; border:none; border-radius:5px; color:#0f1923; font-weight:bold; cursor:pointer; width:100%; font-size: 1em;">
+                    Analyse starten / Aktualisieren
+                </button>
+            </form>
+        </div>
+
+        <div class="chart-column-card">
+            <h2>
+                {% if ausgewaehltes_wp_obj %}
+                    Chart & KPIs für: <span style="color: #61dafb;">{{ ausgewaehltes_wp_obj.security_name }} ({{ ausgewaehltes_wp_obj.ticker_symbol }})</span>
+                {% else %}
+                    Chart & KPIs
+                {% endif %}
+            </h2>
+
+            {% if fehler_kursdaten %}
+                <p style="color: #ff6b6b; background-color: #2b0000; padding: 10px; border-radius: 4px;">{{ fehler_kursdaten }}</p>
+            {% endif %}
+
+            {% if not ausgewaehltes_wp_id and not fehler_kursdaten %}
+                <p>Bitte links ein Wertpapier auswählen und auf "Analyse starten" klicken.</p>
+            {% endif %}
+            
+            <div id="plotly_chart_div" style="min-height: 400px; background-color: #0f1923; border-radius: 4px; padding:10px;">
+                {# Hier wird der Plotly Chart gerendert #}
+                {% if chart_daten_json %}
+                    {# Die Debug-Tabelle kann hier entfernt oder auskommentiert bleiben #}
+                    {# <p>Anzahl Kurspunkte: {{ kursdaten_df|length }}</p> #}
+                {% elif ausgewaehltes_wp_id and not fehler_kursdaten %}
+                    <p>Keine Kursdaten für den ausgewählten Zeitraum gefunden oder das Wertpapier hat keine historischen Daten.</p>
+                {% endif %}
+            </div>
+            
+            <h3 style="margin-top: 30px;">Kennzahlen</h3>
+            <div id="kpi_table_div">
+                <p>KPIs erscheinen hier...</p>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_head %}
+    <style>
+        /* Stile für die einzel_wp_ansicht Seite */
+        .page-header-row { 
+            padding: 0 0 20px 0; 
+            margin-bottom: 20px;
+            border-bottom: 1px solid #2a3b4c; 
+        }
+        .page-header-row h1 {
+            margin-top: 0; 
+            margin-bottom: 0;
+        }
+        .main-content-grid { 
+            display: grid; 
+            grid-template-columns: 1fr 3fr; 
+            gap: 25px; 
+        }
+        .controls-column-card, .chart-column-card { 
+            background-color: #172330; 
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+        .controls-column-card h2, .chart-column-card h2 {
+            color: #ffffff;
+            border-bottom: 1px solid #2a3b4c;
+            padding-bottom: 10px;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+        label {
+            display: block;
+            margin-top: 18px;
+            margin-bottom: 7px;
+            font-weight: bold;
+            font-size: 0.95em;
+            color: #a0b0c0; 
+        }
+        select, input[type="date"] {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 5px;
+            border: 1px solid #3a4b5c; 
+            background-color: #0f1923; 
+            color: #cbcbcb;
+            box-sizing: border-box;
+            font-size: 0.9em;
+        }
+        select {
+             margin-bottom: 18px;
+        }
+        select:focus, input[type="date"]:focus {
+            outline: none;
+            border-color: #61dafb; 
+            box-shadow: 0 0 0 2px rgba(97, 218, 251, 0.3);
+        }
+        .radio-group {
+            background-color: #0f1923;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #3a4b5c;
+            margin-bottom: 18px;
+        }
+        .radio-group label {
+            display: inline-block;
+            margin-right: 15px;
+            font-weight: normal;
+            font-size: 0.9em;
+            color: #cbcbcb;
+            margin-top: 0; 
+        }
+        .radio-group input[type="radio"] {
+            margin-right: 5px;
+            vertical-align: middle; 
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #3a4b5c;
+            padding: 10px 12px;
+            text-align: left;
+            font-size: 0.9em;
+        }
+        th {
+            background-color: #2a3b4c; 
+            color: #ffffff;
+            font-weight: bold;
+        }
+        td {
+            background-color: #172330; 
+        }
+    </style>
+{% endblock %}
+
+{% block extra_scripts %}
+    <script>
+        // Skript für Zeitraum-Preset Auswahl
+        const zeitraumPresetSelect = document.getElementById('zeitraum_preset');
+        const benutzerdefDiv = document.getElementById('benutzerdefinierter_zeitraum');
+
+        if (zeitraumPresetSelect && benutzerdefDiv) {
+            zeitraumPresetSelect.addEventListener('change', function() {
+                if (this.value === 'Benutzerdefiniert') {
+                    benutzerdefDiv.style.display = 'block';
+                } else {
+                    benutzerdefDiv.style.display = 'none';
+                }
+            });
+            if (document.getElementById('zeitraum_preset')) {
+                document.getElementById('zeitraum_preset').dispatchEvent(new Event('change'));
+            }
+        }
+
+        // Choices.js für das Wertpapier-Dropdown initialisieren
+        const wertpapierSelectElement = document.getElementById('wertpapier_select');
+        if (wertpapierSelectElement) {
+            const choicesWP = new Choices(wertpapierSelectElement, {
+                searchEnabled: true, 
+                shouldSort: false, 
+                placeholder: true, 
+                itemSelectText: 'Auswählen', 
+            });
+        }
+
+        // Choices.js auch für das Benchmark-Dropdown initialisieren
+        const benchmarkSelectElement = document.getElementById('benchmark_select');
+        if (benchmarkSelectElement) {
+            const choicesBench = new Choices(benchmarkSelectElement, {
+                searchEnabled: true,
+                shouldSort: false,
+                placeholder: true,
+                itemSelectText: 'Auswählen',
+            });
+        }
+
+        // Plotly Chart erstellen, wenn Daten vorhanden sind
+        const chartDataJson = '{{ chart_daten_json|escapejs }}'; 
+        const plotlyChartDiv = document.getElementById('plotly_chart_div');
+
+        if (chartDataJson && chartDataJson !== 'None' && plotlyChartDiv) {
+            try {
+                const chartData = JSON.parse(chartDataJson);
+                console.log("Plotly Chart Daten empfangen:", chartData);
+
+                if (chartData.dates && chartData.adj_close && chartData.dates.length > 0) {
+                    const trace1 = {
+                        x: chartData.dates,
+                        y: chartData.adj_close,
+                        mode: 'lines',
+                        type: 'scatter',
+                        name: chartData.security_name || 'Adj. Close',
+                        line: {
+                            color: '#61dafb', 
+                            width: 2
+                        }
+                    };
+
+                    const layout = {
+                        title: {
+                            text: 'Kursverlauf (' + (chartData.security_name || 'Wertpapier') + ')',
+                            font: { color: '#cbcbcb' }
+                        },
+                        xaxis: {
+                            title: 'Datum',
+                            color: '#cbcbcb',
+                            gridcolor: '#2a3b4c', 
+                            type: 'date'
+                        },
+                        yaxis: {
+                            title: 'Angepasster Schlusskurs',
+                            color: '#cbcbcb',
+                            gridcolor: '#2a3b4c',
+                        },
+                        plot_bgcolor: '#0f1923',  
+                        paper_bgcolor: '#172330', 
+                        font: {
+                            color: '#cbcbcb'
+                        },
+                        margin: { l: 60, r: 20, b: 50, t: 70, pad: 4 }, 
+                        legend: {
+                            font: {color: '#cbcbcb'},
+                            bgcolor: 'rgba(23,35,48,0.8)', 
+                            bordercolor: '#3a4b5c'
+                        }
+                    };
+                    
+                    const skalaAuswahl = '{{ skala|escapejs }}'; 
+                    if (skalaAuswahl === 'log') {
+                        layout.yaxis.type = 'log';
+                        layout.yaxis.autorange = true; 
+                    } else {
+                        layout.yaxis.type = 'linear';
+                    }
+
+                    Plotly.newPlot('plotly_chart_div', [trace1], layout, {responsive: true});
+                    console.log("Plotly Chart gerendert.");
+                } else {
+                    plotlyChartDiv.innerHTML = "<p>Keine ausreichenden Daten für den Chart vorhanden.</p>";
+                    console.log("Nicht genügend Daten für Plotly Chart.");
+                }
+            } catch (e) {
+                console.error("Fehler beim Parsen der JSON Chart Daten oder beim Plotly Rendering:", e);
+                plotlyChartDiv.innerHTML = "<p>Fehler beim Laden des Charts.</p>";
+            }
+        } else if (document.querySelector('.chart-column-card h2 span')) { 
+             if (!document.querySelector('#plotly_chart_div p')) { 
+             }
+        }
+    </script>
+{% endblock %}

@@ -1,0 +1,200 @@
+{# /opt/easyportfolio_django_app/portfolio_app/templates/portfolio_app/eodhd_data_hub.html #}
+
+{% extends "portfolio_app/base.html" %}
+{% load static %} 
+
+{% block title %}
+    {{ page_title|default:"EODHD Daten-Hub" }} - EasyPortfolio
+{% endblock title %}
+
+{% block content %}
+<div class="container mt-4 mb-5 content-container"> {# content-container Klasse für einheitliches Styling #}
+    <div class="row mb-3">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'portfolio_app:einzel_wp_ansicht' %}">Portfolio App</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">{{ page_title|default:"EODHD Daten-Hub" }}</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">{{ page_title|default:"EODHD Daten-Hub" }}</h1>
+    </div>
+    
+    {# Der Lead-Text wurde entfernt, wie gewünscht #}
+    
+    <form method="GET" action="{% url 'portfolio_app:eodhd_data_hub' %}" class="mb-4"> {# Die HR-Linie davor wurde entfernt #}
+        <div class="input-group input-group-lg">
+            <input type="text" name="query" class="form-control" 
+                   placeholder="Ticker, ISIN oder Name des Wertpapiers eingeben..." 
+                   value="{{ search_query|default:'' }}" autofocus>
+            {# Die preview Parameter hier entfernen, damit sie nicht endlos mitgeschleppt werden, wenn man neu sucht #}
+            <input type="hidden" name="preview_ticker" value="">
+            <input type="hidden" name="preview_exchange" value="">
+            <input type="hidden" name="preview_name" value="">
+            <button class="btn btn-primary" type="submit">
+                <i class="bi bi-search"></i> Suchen
+            </button>
+        </div>
+    </form>
+
+    {% if search_results is not None %}
+        {# Die HR-Linie hier wurde entfernt #}
+        <h3 class="mb-3 mt-4">Suchergebnisse {% if search_query and not preview_ticker %}(für "{{ search_query }}"){% endif %}:</h3>
+        {% if search_results %}
+            <div class="table-responsive">
+                <table class="table table-hover table-sm">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Name (EODHD)</th>
+                            <th>Ticker</th>
+                            <th>Börse</th>
+                            <th>ISIN (EODHD)</th>
+                            <th>In DB?</th>
+                            <th>Vorschau</th>
+                            <th>Aktion</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in search_results %}
+                        <tr>
+                            <td>
+                                {{ item.Name }}
+                                {% if item.local_db_exists and item.Name|lower != item.local_db_security_name|lower and not item.local_db_isin_match_different_ticker %}
+                                    <br><small class="text-muted">DB: {{ item.local_db_security_name }} (ID: {{ item.local_db_security_id }})</small>
+                                {% elif item.local_db_isin_match_different_ticker %}
+                                     <br><small class="text-danger">ISIN in DB bei: {{ item.local_db_security_name }} (ID: {{ item.local_db_security_id }})</small>
+                                {% endif %}
+                            </td>
+                            <td>{{ item.Ticker }}</td>
+                            <td>{{ item.Exchange }}</td>
+                            <td>{{ item.ISIN|default:"-" }}</td>
+                            <td>
+                                {% if item.local_db_exists %}
+                                    <i class="bi bi-check-circle-fill text-success" title="Ja, ID: {{ item.local_db_security_id }}"></i> Ja
+                                    {% if item.local_db_isin_match_different_ticker %}
+                                        <br><small class="text-danger">Anderer Ticker für diese ISIN</small>
+                                    {% endif %}
+                                {% else %}
+                                    <i class="bi bi-x-circle text-secondary" title="Nein"></i> Nein
+                                {% endif %}
+                            </td>
+                            <td> {# Vorschau-Link #}
+                                <a href="{% url 'portfolio_app:eodhd_data_hub' %}?query={{ search_query|urlencode }}&preview_ticker={{ item.Ticker|urlencode }}&preview_exchange={{ item.Exchange|urlencode }}&preview_name={{ item.Name|urlencode }}" 
+                                   class="btn btn-sm btn-outline-secondary" title="EODHD Kurs-Vorschau laden">
+                                    <i class="bi bi-graph-up"></i> Chart
+                                </a>
+                            </td>
+                            <td> {# Aktionen #}
+                                {% if not item.local_db_exists %}
+                                    <form method="POST" action="{% url 'portfolio_app:import_eodhd_security' %}" style="display: inline;">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="eodhd_name" value="{{ item.Name }}">
+                                        <input type="hidden" name="eodhd_ticker" value="{{ item.Ticker }}">
+                                        <input type="hidden" name="eodhd_exchange" value="{{ item.Exchange }}">
+                                        <input type="hidden" name="eodhd_isin" value="{{ item.ISIN|default:'' }}">
+                                        <input type="hidden" name="eodhd_currency" value="{{ item.Currency|default:'' }}">
+                                        <input type="hidden" name="eodhd_country" value="{{ item.Country|default:'' }}">
+                                        <button type="submit" class="btn btn-sm btn-success" name="action" value="import_new">
+                                            <i class="bi bi-database-down"></i> Importieren
+                                        </button>
+                                    </form>
+                                {% else %}
+                                    {# Das ISIN-Konflikt-Badge wurde hier entfernt, die textliche Warnung oben reicht. #}
+                                    <form method="POST" 
+                                          action="{% url 'portfolio_app:update_eodhd_security' security_id=item.local_db_security_id %}" 
+                                          style="display: inline;">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="eodhd_name" value="{{ item.Name }}">
+                                        <input type="hidden" name="eodhd_ticker" value="{{ item.Ticker }}">
+                                        <input type="hidden" name="eodhd_exchange" value="{{ item.Exchange }}">
+                                        <input type="hidden" name="eodhd_isin" value="{{ item.ISIN|default:'' }}">
+                                        <input type="hidden" name="eodhd_currency" value="{{ item.Currency|default:'' }}">
+                                        <input type="hidden" name="eodhd_country" value="{{ item.Country|default:'' }}">
+                                        
+                                        <button type="submit" class="btn btn-sm btn-info" name="action" value="update_overwrite_existing">
+                                            <i class="bi bi-arrow-repeat"></i> In DB aktualisieren (ID: {{ item.local_db_security_id }})
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %} 
+            <div class="alert alert-info" role="alert"> 
+                Keine Ergebnisse für Ihre Anfrage gefunden oder ein Fehler ist bei der Suche aufgetreten.
+            </div>
+        {% endif %}
+    {% endif %} 
+
+    {# NEUER BEREICH FÜR EODHD VORSCHAU-CHART #}
+    {% if eodhd_preview_chart_json %} {# Zeige nur, wenn dieser Chart Daten hat #}
+        <hr class="my-4"> 
+        <div class="row mt-4">
+            <div class="col-md-12"> {# Volle Breite für den einen Chart #}
+                <h4>EODHD Kurs-Vorschau: {{ preview_item_name }}</h4>
+                <div id="eodhdPreviewChartDiv" style="width:100%; height:400px;"></div>
+                <p><small>Zeitraum der Vorschau: soweit verfügbar</small></p>
+            </div>
+        </div>
+    {% endif %}
+
+</div> {# Ende .content-container (oder .container, je nachdem was du nutzt) #}
+{% endblock content %}
+
+{% block extra_scripts %}
+    {{ block.super }} {# Korrekte Syntax um parent block content einzufügen #}
+    {% if eodhd_preview_chart_json %} {# JS nur laden, wenn Chart-Daten da sind #}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                var eodhdData = JSON.parse('{{ eodhd_preview_chart_json|escapejs }}'); // Sicher JSON parsen
+                var eodhdLayout = {
+                    title: { 
+                        text: 'EODHD Vorschau: ' + eodhdData.security_name,
+                        font: { color: '#e8eff7' } 
+                    },
+                    xaxis: { 
+                        title: 'Datum', 
+                        type: 'date',
+                        gridcolor: '#223044', /* Helleres Gitter */
+                        linecolor: '#2c3e50',
+                        tickfont: { color: '#b0c4de' }
+                    },
+                    yaxis: { 
+                        title: 'Preis Adj. Close',
+                        gridcolor: '#223044',
+                        linecolor: '#2c3e50',
+                        tickfont: { color: '#b0c4de' }
+                    },
+                    margin: { l: 60, r: 30, b: 50, t: 50, pad: 4 }, // Angepasste Margins
+                    paper_bgcolor: 'transparent', 
+                    plot_bgcolor: 'rgba(16, 24, 41, 0.5)',  /* Leicht transparenter Plot-Hintergrund, passend zum Body */
+                    font: { color: '#d1d9e6' }      
+                };
+                var eodhdTrace = {
+                    x: eodhdData.dates,
+                    y: eodhdData.adj_close,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: eodhdData.security_name,
+                    line: {color: '#70a0ff'} 
+                };
+                Plotly.newPlot('eodhdPreviewChartDiv', [eodhdTrace], eodhdLayout, {responsive: true});
+            } catch (e) {
+                console.error("Fehler beim Rendern des EODHD Vorschau-Charts:", e);
+                var chartDiv = document.getElementById('eodhdPreviewChartDiv');
+                if (chartDiv) { // Prüfen ob Div existiert
+                    chartDiv.innerHTML = '<p class="text-danger">Fehler beim Laden des Charts. Details siehe Konsole.</p>';
+                }
+            }
+        });
+    </script>
+    {% endif %}
+{% endblock extra_scripts %}

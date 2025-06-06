@@ -1,0 +1,67 @@
+{
+    "folders": [
+        {
+            "path": "."
+        }
+    ], 
+    "settings": {
+        // === SQLTools Einstellungen ===
+        "sqltools.connections": [
+            {
+                "mysqlOptions": {
+                    "authProtocol": "default",
+                    "enableSsl": "Disabled"
+                },
+                "previewLimit": 50,
+                "server": "localhost",
+                "port": 3306,
+                "driver": "MariaDB",
+                "name": "Netcup VPS DB (Django)", // Angepasst
+                "database": "easyportfolio_db",
+                "username": "easyportfolio_user",
+                "askForPassword": true
+            }
+        ],
+
+        // === Allgemeine Editor-Einstellungen ===
+        "editor.formatOnSave": true,
+        "files.exclude": {
+            "**/.git": true,
+            "**/__pycache__": true,
+            "**/venv": true,
+            "**/.venv": true,
+            "**/staticfiles": true, // Django-spezifisch
+            "**/media": true        // Django-spezifisch
+        },
+        "search.exclude": {
+            "**/venv": true,
+            "**/.venv": true,
+            "**/staticfiles": true,
+            "**/media": true
+        },
+        "python.analysis.autoSearchPaths": true,
+
+        // === Python Spezifische Einstellungen ===
+        "[python]": {
+            "editor.formatOnSave": true,
+            "editor.defaultFormatter": "ms-python.black-formatter",
+            // Optional: isort für Import-Sortierung beim Speichern
+            // "editor.codeActionsOnSave": {
+            //     "source.organizeImports": "explicit"
+            // }
+        },
+
+        // === Linting mit Flake8 ===
+        "python.linting.enabled": true,
+        "python.linting.lintOnSave": true,
+        "python.linting.flake8Enabled": true,
+        "python.linting.flake8Args": [
+            "--config=${workspaceFolder}/.flake8" 
+        ],
+
+        // === Type Checking mit MyPy (Optional) ===
+        "python.analysis.typeCheckingMode": "basic"
+
+        // Den Python Interpreter wählst du am besten über die Befehlspalette aus.
+    }
+}
