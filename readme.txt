@@ -20,8 +20,9 @@ martin
 Server2025//
 
 
---- LOGS LEEREN ---
+--- LOGS ---
 
+Logs leeren:
 sudo truncate -s 0 /opt/easyportfolio_django_app/logs/qcluster_error.log
 
 
