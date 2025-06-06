@@ -64,6 +64,19 @@ Struktur der Tabelle anzeigen
 SHOW CREATE TABLE wp_portf_historical_prices;
 
 
+--- GITHUB ---
+
+Auf GitHub speichern
+git add .
+git commit -m "Eine aussagekräftige Nachricht, was ich gemacht habe"
+
+Auf GitHub übertragen
+git push origin main
+
+Von GitHub übernehmen
+git pull origin main
+
+
 BERECHNUNG VON WP PORTFOLIOS
 Die Berechnung der Portfolio-Performance zielt darauf ab, die historische Wertentwicklung eines Portfolios
 so realitätsnah wie möglich abzubilden. Eine besondere Herausforderung stellen dabei Wertpapiere innerhalb
